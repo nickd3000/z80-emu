@@ -1,43 +1,125 @@
 package com.physmo.z80;
 
 
+import com.physmo.z80.microcode.CodeTable;
+import com.physmo.z80.microcode.CodeTableManager;
 import com.physmo.z80.microcode.MicroOp;
-import com.physmo.z80.microcode.Microcode;
+
+import java.text.MessageFormat;
 
 public class CPU {
+    // CPU Flags
+    public static final int FLAG_ZERO = 0b0100_0000;
+    public static final int FLAG_ADDSUB = 0b0000_0010;
+    public static final int FLAG_HALFCARRY = 0b0001_0000;
+    public static final int FLAG_CARRY = 0b0000_0001;
+    public static final int FLAG_PARITY_OVERFLOW = 0b0000_0100; // P/V - Parity or Overflow
+
+
     String name = "Zilog Z80";
 
-    Microcode microcode = new Microcode();
+    CodeTableManager codeTableManager = new CodeTableManager();
+    CodeTable microcode = codeTableManager.codeTableMain;
 
-    // CPU Flags
-    public static final int FLAG_ZERO = 0b1000_0000;
-    public static final int FLAG_ADDSUB = 0b0100_0000;
-    public static final int FLAG_HALFCARRY = 0b0010_0000;
-    public static final int FLAG_CARRY = 0b0001_0000;
 
     // Registers.
-    int A, B, C, D, E, H, L;
+    int A, B, C, D, E, H, L, I;
+    int A_, B_, C_, D_, E_, H_, L_, I_;
 
     // Bus
     int dataBus = 0;
     int addrBus = 0;
     int PC = 0; // Program counter
-    int SP = 0; // Stack pointer
+    int SP = 0xdff0; // Stack pointer
     int FL = 0; // Flags
+    int IX = 0; // Index register
+    int IY = 0; // Index register
     int pendingEnableInterrupt = 0;
     int pendingDisableInterrupt = 0;
     int interruptEnabled = 0;
     int halt = 0;
 
-    MEM mem = new MEM();
+    MEM mem = null;
+    String lastDecompile = "";
 
+    public void init() {
+        A = 0xff;
+        FL = 0xff;
+        setBC(0xffff);
+        setDE(0xffff);
+        setHL(0xffff);
+        IX = 0xffff;
+        IY = 0xffff;
+        B_ = 0xff;
+        C_ = 0xff;
+        D_ = 0xff;
+        E_ = 0xff;
+        H_ = 0xff;
+        L_ = 0xff;
+        I = 0;
 
+    }
+
+    public String dump() {
+        String str = "";
+        str += MessageFormat.format("A:{0} B:{1} C:{2} D:{3} E:{4} H:{5} L:{6} I:{7}",
+                Utils.toHex2(A),
+                Utils.toHex2(B),
+                Utils.toHex2(C),
+                Utils.toHex2(D),
+                Utils.toHex2(E),
+                Utils.toHex2(H),
+                Utils.toHex2(L),
+                Utils.toHex2(I));
+        str += MessageFormat.format(" PC:{0} SP:{1} FL:{2} ",
+                Utils.toHex4(PC),
+                Utils.toHex4(SP),
+                Utils.toHex4(FL));
+
+        str += "   " + lastDecompile;
+        return str;
+    }
+
+    public void tick(int n) {
+        for (int i = 0; i < n; i++) {
+            tick();
+        }
+    }
+
+    public void attachHardware(MEM mem) {
+        this.mem = mem;
+    }
 
     public void tick() {
-        int currentInstruction = mem.peek(PC++);
+        int currentInstruction = mem.peek(PC);
+
+        lastDecompile = decompile(microcode, PC, currentInstruction);
+
+        PC++;
 
         MicroOp[] ops = microcode.getInstructionCode(currentInstruction);
 
+        // Handle ED prefix instructions.
+        if (ops[0] == MicroOp.PREFIX_ED) {
+            currentInstruction = mem.peek(PC);
+            lastDecompile = "(Prefix ED) " + decompile(codeTableManager.codeTableED, PC, currentInstruction);
+            PC++;
+            ops = codeTableManager.codeTableED.getInstructionCode(currentInstruction);
+        } else
+            // Handle FD prefix instructions.
+            if (ops[0] == MicroOp.PREFIX_FD) {
+                currentInstruction = mem.peek(PC);
+                lastDecompile = "(Prefix FD) " + decompile(codeTableManager.codeTableFD, PC, currentInstruction);
+                PC++;
+                ops = codeTableManager.codeTableFD.getInstructionCode(currentInstruction);
+
+
+        }
+
+        processMicroOps(ops);
+    }
+
+    public void processMicroOps(MicroOp[] ops) {
         if (ops.length > 0 && ops[0] != MicroOp.TODO) {
             //printNewOpUse(currentInstruction);
             for (MicroOp op : ops) {
@@ -46,6 +128,12 @@ public class CPU {
         }
     }
 
+
+    public String decompile(CodeTable codeTable, int address, int instruction) {
+        String str = "[" + Utils.toHex4(address) + "/" + Utils.toHex2(instruction) + "] ";
+        str += codeTable.getInstructionName(instruction);
+        return str;
+    }
 
     private void doMicroOp(MicroOp op) {
         switch (op) {
@@ -94,11 +182,20 @@ public class CPU {
             case FETCH_SP:
                 dataBus = SP;
                 break;
+            case FETCH_IY:
+                dataBus = IY;
+                break;
+            case FETCH_IX:
+                dataBus = IX;
+                break;
             case FETCH_8:
                 dataBus = getNextByte();
                 break;
             case FETCH_16:
                 dataBus = getNextWord();
+                break;
+            case FETCH_8_ADDRESS:
+                addrBus = getNextByte();
                 break;
             case FETCH_16_ADDRESS:
                 addrBus = getNextWord();
@@ -129,6 +226,9 @@ public class CPU {
             case STORE_BYTE_AT_ADDRESS:
                 mem.poke(addrBus, dataBus);
                 break;
+            case FETCH_pIY_D:
+                dataBus = mem.peek(IY + D);
+                break;
             case STORE_A:
                 A = dataBus;
                 break;
@@ -150,6 +250,9 @@ public class CPU {
             case STORE_L:
                 L = dataBus;
                 break;
+            case STORE_I:
+                I = dataBus;
+                break;
             case STORE_BC:
                 setBC(dataBus);
                 break;
@@ -165,9 +268,19 @@ public class CPU {
             case STORE_SP:
                 SP = dataBus;
                 break;
+            case STORE_IY:
+                IY = dataBus;
+                break;
+            case STORE_IX:
+                IX = dataBus;
+                break;
+
             case STORE_p16WORD:
                 mem.poke(addrBus, getLowByte(dataBus));
                 mem.poke(addrBus + 1, getHighByte(dataBus));
+                break;
+            case STORE_pIY_D:
+                mem.poke(IY + D, dataBus);
                 break;
             case INC_8:
                 dataBus = dataBus + 1;
@@ -294,6 +407,13 @@ public class CPU {
                 setFlag(FLAG_ADDSUB);
 
                 A = wrk & 0xff;
+                break;
+            case SBC_HL:
+                // TODO: this was invented, check it properly
+                wrk = getHL() - ((dataBus & 0xffff) + (testFlag(FLAG_CARRY) ? 1 : 0));
+                if ((wrk & 0xffff) == 0) setFlag(FLAG_ZERO);
+                else unsetFlag(FLAG_ZERO);
+                setHL(wrk);
                 break;
             case AND:
                 wrk = A & dataBus;
@@ -478,6 +598,13 @@ public class CPU {
                     PC = popW();
                 }
                 break;
+            case OUT:
+                // TODO the port stuff needs to be implemented
+                break;
+            case IN:
+                // TODO the port stuff needs to be implemented
+                dataBus = 0; // DUMMY
+                break;
             case DAA: // Decimal Adjust Accumulator to get a correct BCD representation after an arithmetic instruction
 
                 int correction = 0;
@@ -632,12 +759,121 @@ public class CPU {
                 setHL(wrk);
 
                 break;
+            case EXX:
+                exx();
+                break;
+            case EX_DE_HL:
+                wrk = getDE();
+                setDE(getHL());
+                setHL(wrk);
+                break;
+            case LDI:
+                ed_ldi();
+                break;
+            case LDIR:
+                do {
+                    ed_ldi();
+                } while (!testFlag(FLAG_PARITY_OVERFLOW));
+                break;
+            case LDDR:
+                do {
+                    mem.poke(getDE(), mem.peek(getHL()));
+                    setDE(getDE() - 1);
+                    setHL(getHL() - 1);
+                    setBC(getBC() - 1);
+                    System.out.println("LDDR " + getBC());
+                } while (getBC() != 0);
+                break;
+            case IM_0:
+                setInterruptMode(0);
+                break;
+            case IM_1:
+                setInterruptMode(1);
+
+                break;
+            case IM_2:
+                setInterruptMode(2);
+                break;
             case PREFIX_CB:
                 //CPUPrefixInstructions.processPrefixCommand(this, dataBus);
                 break;
+            case PREFIX_ED: {
+                int subInstruction = mem.peek(PC++);
+                MicroOp[] ops = codeTableManager.codeTableED.getInstructionCode(subInstruction);
+
+                if (ops.length > 0 && ops[0] != MicroOp.TODO) {
+                    //printNewOpUse(currentInstruction);
+                    for (MicroOp _op : ops) {
+                        doMicroOp(_op);
+                    }
+                }
+            }
+            break;
             default:
                 System.out.println("Unsupported micro op: " + op.name());
         }
+    }
+
+    private void ed_ldi() {
+        // Transfers a byte of data from the memory location pointed to by HL to the memory
+        // location pointed to by DE. Then HL and DE are incremented and BC is decremented.
+        // p/v is reset if BC becomes zero and set otherwise.
+        int data = mem.peek(getHL());
+        mem.poke(getDE(), data);
+        incHL();
+        incDE();
+        decBC();
+        if (getBC() == 0) unsetFlag(FLAG_PARITY_OVERFLOW);
+        else setFlag(FLAG_PARITY_OVERFLOW);
+    }
+
+    private void ed_cpi() {
+    }
+
+    private void ed_ini() {
+    }
+
+    private void ed_outi() {
+    }
+
+    private void ed_ldd() {
+    }
+
+    private void ed_cpd() {
+    }
+
+    private void ed_ind() {
+    }
+
+    private void ed_outd() {
+    }
+
+    private void incBC() {
+        setBC((getBC() + 1) & 0xffff);
+    }
+
+    private void incDE() {
+        setDE((getDE() + 1) & 0xffff);
+    }
+
+    private void incHL() {
+        setHL((getHL() + 1) & 0xffff);
+    }
+
+    private void decBC() {
+        setBC((getBC() - 1) & 0xffff);
+    }
+
+    private void decDE() {
+        setDE((getDE() - 1) & 0xffff);
+    }
+
+    private void decHL() {
+        setHL((getHL() - 1) & 0xffff);
+    }
+
+    private void setInterruptMode(int i) {
+        // TODO: finish this
     }
 
     // Combine two bytes into one 16 bit value.
@@ -721,6 +957,24 @@ public class CPU {
         this.H = getHighByte(val);
         this.L = getLowByte(val);
     }
+
+    // Exchanges the 16-bit contents of BC, DE, and HL with BC', DE', and HL'.
+    public void exx() {
+        int[] vals = {B, C, D, E, H, L, B_, C_, D_, E_, H_, L_};
+        B = vals[6];
+        C = vals[7];
+        D = vals[8];
+        E = vals[9];
+        H = vals[10];
+        L = vals[11];
+        B_ = vals[0];
+        C_ = vals[1];
+        D_ = vals[2];
+        E_ = vals[3];
+        H_ = vals[4];
+        L_ = vals[5];
+    }
+
 
     public void enableInterrupts() {
         pendingEnableInterrupt = 1;
