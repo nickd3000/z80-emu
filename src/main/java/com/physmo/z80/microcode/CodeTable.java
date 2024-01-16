@@ -28,7 +28,7 @@ public class CodeTable {
 
     public MicroOp[] getInstructionCode(int instruction) {
         if (n[instruction].length == 1 && n[instruction][0] == MicroOp.TODO) {
-            throw new RuntimeException("Instruction " + Utils.toHex2(instruction) + " not defined");
+            throw new RuntimeException("Instruction 0x" + Utils.toHex2(instruction) + " not defined (Code table " + name + ")");
         }
         return n[instruction];
     }

@@ -6,6 +6,7 @@ public enum MicroOp {
     PREFIX_CB,
     PREFIX_ED,
     PREFIX_FD,
+    PREFIX_FD_CB,
 
     INC_8,      // INC temp (8 bit)
     INC_16,     // INC temp (16 bit)
@@ -42,11 +43,14 @@ public enum MicroOp {
     FETCH_PC,    // Read Program Counter to temp
     FETCH_pBC,   // Read value in memory location BC to temp
     FETCH_pIY_D,    // Read value in memory location (IY + D) to temp
+    FETCH_pIY_D_FDCB,    // Read value in memory location (IY + D) to temp
+    FETCH_BYTE_TO_D, // Fetch the next byte to the special D store for use int the (IY + D) commands.
 
     FETCH_8_ADDRESS,    // Fetches the next 1 byte onto the lower end of the address bus
     FETCH_16_ADDRESS, // Fetches the next 2 bytes onto the Address bus
     FETCH_pHL,
     FETCH_BYTE_FROM_ADDR,
+    FETCH_WORD_FROM_ADDR,
 
     STORE_A,    // Store temp in A
     STORE_B,    // Store temp in B
@@ -64,12 +68,14 @@ public enum MicroOp {
     STORE_IX,
     STORE_IY,
     STORE_pIY_D,
+    STORE_pIY_D_FDCB,
+    STORE_pHL,
 
 
     ADD_HL,    // Add HL to temp
 
 
-    RLCA,
+    RLC,
     STOP,
     HALT,
 
@@ -79,17 +85,24 @@ public enum MicroOp {
     SET_ADDR_FROM_BC,
     SET_ADDR_FROM_DE,
     STORE_BYTE_AT_ADDRESS,
-    RRCA,
+    STORE_WORD_AT_ADDRESS,
+    RRC,
     SET_ADDR_FROM_HL_INC,
     SET_ADDR_FROM_HL_DEC,
 
+    BIT0, BIT1, BIT2, BIT3, BIT4, BIT5, BIT6, BIT7,
+    SET0, SET1, SET2, SET3, SET4, SET5, SET6, SET7,
+    RES0, RES1, RES2, RES3, RES4, RES5, RES6, RES7,
 
     RLA,
     RL,
-
-    RRA,
+    RR,
     DAA,
     CPL,
+    SLA,
+    SRA,
+    SLL,
+    SRL,
 
     SCF,
     CCF,
@@ -105,8 +118,13 @@ public enum MicroOp {
 
     SBC_HL, // 16 bit version applied to HL
 
+    // RETURNS
     RET, RETI, RETZ, RETNZ,
-    RETNC, RETC, PUSHW,
+    RETNC, RETC,
+    RET_PO, RET_P,
+
+    // STACK
+    PUSHW,
     POPW,
 
     CALLNZ,
@@ -114,7 +132,8 @@ public enum MicroOp {
     // JUMPS
     JP, JRNZ, JRZ,
     JRNC, JRC, JR,
-    JPZ, JPNZ, JPC, JPNC,
+    JPZ, JPNZ, JPC, JPNC, DJNZ,
+    JP_PO, JP_PE, JP_P, JP_M,
 
     // CALL
     CALLZ, CALLC, CALLNC, CALL,
@@ -147,10 +166,12 @@ public enum MicroOp {
     LDZPGA, ADDSPNN,
     FETCH_ZPG,
     STORE_AF,
+    STORE_PC,
     // Interrupt enable/disable
     DI, EI,
     IM_0, IM_1, IM_2,
     LDHLSPN, EX_DE_HL,
+    EX_AF_AF, FETCH_PORT_C, EX_SP_HL,      // Exchange AF with AF'
 }
 
 
