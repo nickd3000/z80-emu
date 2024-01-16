@@ -17,13 +17,20 @@ public class Render {
         int y = 0;
         for (int j = 0; j < 192; j++) {
             for (int i = 0; i < 32; i++) {
-                int chunk = ram[readHead++];
+
+                int address = i & 0b00011111; // Add x part.
+                address |= ((j & 0b00111000) << 2); // Add upper 3 bits of y
+                address |= ((j & 0b00000111) << 8); // Add lower 3 bits of y
+                address |= ((j & 0b01100000) << 5); // Add top 2 bits of y
+                address |= 0b01000000_00000000;
+
+                int chunk = ram[address];
                 y = j;
                 x = i * 8;
 
                 // Decode pixels in byte;
                 for (int b = 0; b < 8; b++) {
-                    if ((chunk & (1 << b)) > 0) bd.setDrawColor(c1);
+                    if ((chunk & (1 << (8 - b))) > 0) bd.setDrawColor(c1);
                     else bd.setDrawColor(c2);
                     bd.drawFilledRect((x + b) * scale, y * scale, scale, scale);
                 }
@@ -31,6 +38,7 @@ public class Render {
             }
         }
     }
+
 
     public void renderRegisters(BasicDisplay bd, CPU cpu, int scale) {
 

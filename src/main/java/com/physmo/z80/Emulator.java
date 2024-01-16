@@ -53,7 +53,7 @@ public class Emulator {
 
 //        breakpoints.add(0x0DAF); // CL-ALL
 
-        breakpoints.add(0x1285); // problem?
+//        breakpoints.add(0x1287); // problem?
 
 //        breakpoints.add(0x0D89); // CLS-2
 
@@ -78,9 +78,9 @@ public class Emulator {
             }
 
             cpu.tick(1);
-            System.out.println(cpu.dump());
+            //System.out.println(cpu.dump());
 
-            if (i % 1000 == 0) {
+            if (i % 5000 == 0) {
                 render.render(basicDisplay, cpu, 2);
                 render.renderRegisters(basicDisplay, cpu, 2);
                 basicDisplay.repaint();

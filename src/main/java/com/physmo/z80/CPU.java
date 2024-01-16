@@ -1225,7 +1225,7 @@ public class CPU {
     }
 
     public void testBit(int val, int bit) {
-        if ((val | (1 << bit)) == 0) {
+        if ((val & (1 << bit)) == 0) {
             setFlag(FLAG_ZERO);
             setFlag(FLAG_PARITY_OVERFLOW);
         } else {

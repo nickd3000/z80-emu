@@ -171,7 +171,7 @@ public enum MicroOp {
     DI, EI,
     IM_0, IM_1, IM_2,
     LDHLSPN, EX_DE_HL,
-    EX_AF_AF, FETCH_PORT_C, EX_SP_HL,      // Exchange AF with AF'
+    EX_AF_AF, FETCH_PORT_C, EX_SP_HL,       // Exchange AF with AF'
 }
 
 
