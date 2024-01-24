@@ -8,20 +8,23 @@ import com.physmo.z80.microcode.MicroOp;
 import java.text.MessageFormat;
 
 public class CPU {
+
     // CPU Flags
-    public static final int FLAG_SIGN = 0b1000_0000;
-    public static final int FLAG_ZERO = 0b0100_0000;
-    public static final int FLAG_HALFCARRY = 0b0001_0000;
-    public static final int FLAG_PARITY_OVERFLOW = 0b0000_0100; // P/V - Parity or Overflow
-    public static final int FLAG_SUB = 0b0000_0010; // N - Set if last operation was a subtraction
-    public static final int FLAG_CARRY = 0b0000_0001;
+    public static final int FLAG_S = 0b1000_0000; // Sign
+    public static final int FLAG_Z = 0b0100_0000; // Zero
+    public static final int FLAG_5 = 0b0010_0000; // 5
+    public static final int FLAG_H = 0b0001_0000; // Half carry
+    public static final int FLAG_3 = 0b0000_1000; // 3
+    public static final int FLAG_PV = 0b0000_0100; // P/V - Parity or Overflow
+    public static final int FLAG_N = 0b0000_0010; // N / SUB - Set if last operation was a subtraction
+    public static final int FLAG_C = 0b0000_0001; // Carry
 
     String name = "Zilog Z80";
     CodeTableManager codeTableManager = new CodeTableManager();
     CodeTable microcode = codeTableManager.codeTableMain;
     // Registers.
     int A, B, C, D, E, H, L, I;
-    int A_, B_, C_, D_, E_, H_, L_, I_;
+    int A_, B_, C_, D_, E_, H_, L_;
     // Bus
     int dataBus = 0;
     int addrBus = 0;
@@ -34,22 +37,29 @@ public class CPU {
     int pendingEnableInterrupt = 0;
     int pendingDisableInterrupt = 0;
     int interruptEnabled = 0;
-    int halt = 0;
+    int interruptMode = 0;
+    boolean halted = false;
     int displacement = 0; // FDCB prefix store the data before the last part of the operator (byte 3 of 4) so we store it here.
     MEM mem = null;
     String lastDecompile = "";
+    String lastData = "";
     int tickCounter = 0;
+
 
     public String getFlagsString() {
         // -Z---V--
         String str = "FL:" + Utils.toHex2(FL) + "[";
         char[] flagChars = {'-', '-', '-', '-', '-', '-', '-', '-'};
-        if (testFlag(FLAG_SIGN)) flagChars[0] = 'S';
-        if (testFlag(FLAG_ZERO)) flagChars[1] = 'Z';
-        if (testFlag(FLAG_HALFCARRY)) flagChars[3] = 'H';
-        if (testFlag(FLAG_CARRY)) flagChars[7] = 'C';
-        if (testFlag(FLAG_PARITY_OVERFLOW)) flagChars[5] = 'V';
-        if (testFlag(FLAG_SUB)) flagChars[6] = 'N';
+        if (testFlag(FLAG_S)) flagChars[0] = 'S';
+        if (testFlag(FLAG_Z)) flagChars[1] = 'Z';
+        if (testFlag(FLAG_5)) flagChars[2] = '5';
+        if (testFlag(FLAG_H)) flagChars[3] = 'H';
+        if (testFlag(FLAG_3)) flagChars[4] = '3';
+        if (testFlag(FLAG_PV)) flagChars[5] = 'V';
+        if (testFlag(FLAG_N)) flagChars[6] = 'N';
+        if (testFlag(FLAG_C)) flagChars[7] = 'C';
+
+
         for (int i = 0; i < flagChars.length; i++) {
             str += flagChars[i];
         }
@@ -72,7 +82,7 @@ public class CPU {
         H_ = 0xFF;
         L_ = 0xFF;
         I = 0;
-        SP = 0xffff;
+        SP = 0xafff;
 
         for (int i = 0; i < 200; i++) {
             mem.getRAM()[0x4000 + i] = i & 0xff;
@@ -81,7 +91,7 @@ public class CPU {
 
     public String dump() {
         String str = "";
-        str += MessageFormat.format("{0} A:{1} BC:{2}{3} DE:{4}{5} HL:{6}{7} I:{8} IX:{9} IY:{10}",
+        str += MessageFormat.format("{0} A:{1} BC:{2}{3} DE:{4}{5} HL:{6}{7} I:{8} IX:{9} IY:{10} IY+d:{11} dis:{12}",
                 Utils.padToLength("t" + tickCounter, 8),
                 Utils.toHex2(A),
                 Utils.toHex2(B),
@@ -92,13 +102,15 @@ public class CPU {
                 Utils.toHex2(L),
                 Utils.toHex2(I),
                 Utils.toHex4(IX),
-                Utils.toHex4(IY));
+                Utils.toHex4(IY),
+                Utils.toHex4(IY + displacement),
+                Utils.toHex2(displacement));
         str += MessageFormat.format(" PC:{0} SP:{1} {2} ",
                 Utils.toHex4(PC),
                 Utils.toHex4(SP),
                 getFlagsString());
 
-        str += "   " + lastDecompile;
+        str += "   " + lastDecompile + lastData;
         return str;
     }
 
@@ -113,11 +125,25 @@ public class CPU {
     }
 
     public void tick() {
+
+        if (halted) return;
+
         tickCounter++;
+
+        if (pendingEnableInterrupt == 1) {
+            interruptEnabled = 1;
+            pendingEnableInterrupt = 0;
+        }
+        if (pendingDisableInterrupt == 1) {
+            interruptEnabled = 0;
+            pendingDisableInterrupt = 0;
+        }
+
 
         int currentInstruction = mem.peek(PC);
 
         lastDecompile = decompile(microcode, PC, currentInstruction);
+        lastData = "";
 
         PC++;
 
@@ -142,9 +168,9 @@ public class CPU {
             ops = codeTableManager.codeTableFD.getInstructionCode(currentInstruction);
 
             if (ops[0] == MicroOp.PREFIX_FD_CB) {
-                int d = mem.peek(PC++); // Read D first
+                displacement = mem.peek(PC++); // Read D first
                 currentInstruction = mem.peek(PC);
-                lastDecompile = "(Prefix FDCB) " + decompile(codeTableManager.codeTableFDCB, PC, currentInstruction);
+                lastDecompile = "(Prefix FDCB) " + decompile(codeTableManager.codeTableFDCB, PC, currentInstruction) + " d=" + Utils.toHex2(displacement);
                 PC++;
                 ops = codeTableManager.codeTableFDCB.getInstructionCode(currentInstruction);
             }
@@ -160,7 +186,6 @@ public class CPU {
 
     public void processMicroOps(MicroOp[] ops) {
         if (ops.length > 0 && ops[0] != MicroOp.TODO) {
-            //printNewOpUse(currentInstruction);
             for (MicroOp op : ops) {
                 doMicroOp(op);
             }
@@ -179,16 +204,14 @@ public class CPU {
         int carryIn;
         int carryOut;
         boolean overflow = false;
+        int wrk = 0;
 
         switch (op) {
-//            case HALT:
-//                if (interruptEnabled == 1)
-//                    halt = 1;
-//                else {
-//                    PC++;
-//                }
-//                break;
+            case HALT:
+                halted = true;
+                break;
             case NOP:
+                System.out.println("NOP");
                 break;
             case FETCH_A:
                 dataBus = A;
@@ -234,18 +257,23 @@ public class CPU {
                 break;
             case FETCH_8:
                 dataBus = getNextByte();
+                lastData = "  (" + Utils.toHex2(dataBus) + ")";
                 break;
             case FETCH_16:
                 dataBus = getNextWord();
+                lastData = "  (" + Utils.toHex4(dataBus) + ")";
                 break;
             case FETCH_8_ADDRESS:
                 addrBus = getNextByte();
+                lastData = "  *(" + Utils.toHex2(addrBus) + ")";
                 break;
             case FETCH_16_ADDRESS:
                 addrBus = getNextWord();
+                lastData = "  *(" + Utils.toHex4(addrBus) + ")";
                 break;
-            case FETCH_BYTE_TO_D:
+            case FETCH_BYTE_TO_DISPLACEMENT:
                 displacement = getNextByte();
+                lastData = "  d(" + Utils.toHex2(addrBus) + ")";
                 break;
             case SET_ADDR_FROM_A:
                 addrBus = A;
@@ -275,15 +303,15 @@ public class CPU {
                 break;
             case STORE_BYTE_AT_ADDRESS:
                 mem.poke(addrBus, dataBus);
+                lastData += "  *(" + Utils.toHex4(addrBus) + ")";
                 break;
             case STORE_WORD_AT_ADDRESS:
                 mem.pokeWord(addrBus, dataBus);
+                lastData += "  *(" + Utils.toHex4(addrBus) + ")";
                 break;
             case FETCH_pIY_D:
-                dataBus = mem.peek(IY + D);
-                break;
-            case FETCH_pIY_D_FDCB:
                 dataBus = mem.peek(IY + displacement);
+                lastData += "  *(" + Utils.toHex4(IY + displacement) + ")";
                 break;
             case FETCH_pHL:
                 dataBus = mem.peekWord(getHL());
@@ -342,9 +370,6 @@ public class CPU {
                 mem.poke(addrBus + 1, getHighByte(dataBus));
                 break;
             case STORE_pIY_D:
-                mem.poke(IY + D, dataBus);
-                break;
-            case STORE_pIY_D_FDCB:
                 mem.poke(IY + displacement, dataBus);
                 break;
             case STORE_pHL:
@@ -352,48 +377,50 @@ public class CPU {
                 break;
             case INC_8:
 
-                dataBus = dataBus + 1;
+                wrk = dataBus + 1;
 
-                if (dataBus > 0xff) {
-                    dataBus = 0;
+                if (wrk > 0xff) {
+                    wrk = 0;
                     overflow = true;
                 }
 
-                handleZeroFlag(dataBus & 0xff);
-                handleSignFlag(dataBus & 0xff);
-                unsetFlag(FLAG_SUB);
+                handleZeroFlag(wrk & 0xff);
+                handleSignFlag(wrk & 0xff);
+                unsetFlag(FLAG_N);
 
-                if (overflow) setFlag(FLAG_PARITY_OVERFLOW);
-                else unsetFlag(FLAG_PARITY_OVERFLOW);
-
-                if ((dataBus & 0xF) + 1 > 0xF)
-                    setFlag(FLAG_HALFCARRY);
+                if ((dataBus & 0x0F) == 0x0f)
+                    setFlag(FLAG_H);
                 else
-                    unsetFlag(FLAG_HALFCARRY);
+                    unsetFlag(FLAG_H);
+
+                if ((dataBus & 0x7f) > 0) setFlag(FLAG_PV);
+                else unsetFlag(FLAG_PV);
+
+                dataBus = wrk;
 
                 break;
             case INC_16:
-                dataBus = dataBus + 1;
-                if (dataBus > 0xffff)
-                    dataBus = 0;
+                dataBus = (dataBus + 1) & 0xffff;
                 break;
             case DEC_8:
-                dataBus = dataBus - 1;
-                if (dataBus < 0) {
-                    dataBus = 0xff;
-                    overflow = true;
+                //System.out.println("databus:" + dataBus);
+                wrk = dataBus - 1;
+                if (wrk < 0) {
+                    wrk = 0xff;
                 }
 
-                handleZeroFlag(dataBus);
-                handleSignFlag(dataBus & 0xff);
-                setFlag(FLAG_SUB);
-                if ((dataBus & 0xF) - 1 < 0)
-                    setFlag(FLAG_HALFCARRY);
+                handleZeroFlag(wrk);
+                handleSignFlag(wrk & 0xff);
+                setFlag(FLAG_N);
+                if ((dataBus & 0xF) == 0)
+                    setFlag(FLAG_H);
                 else
-                    unsetFlag(FLAG_HALFCARRY);
+                    unsetFlag(FLAG_H);
 
-                if (overflow) setFlag(FLAG_PARITY_OVERFLOW);
-                else unsetFlag(FLAG_PARITY_OVERFLOW);
+                if ((dataBus & 0x80) > 0) setFlag(FLAG_PV);
+                else unsetFlag(FLAG_PV);
+
+                dataBus = wrk;
 
                 break;
             case DEC_16:
@@ -402,62 +429,93 @@ public class CPU {
                     dataBus = 0xffff;
                 break;
             case ADD_HL:
-                dataBus = getHL() + dataBus;
+                wrk = getHL() + dataBus;
 
-                if (dataBus > 0xffff)
-                    setFlag(FLAG_CARRY);
+                if (wrk > 0xffff)
+                    setFlag(FLAG_C);
                 else
-                    unsetFlag(FLAG_CARRY);
+                    unsetFlag(FLAG_C);
 
-                unsetFlag(FLAG_SUB);
+                unsetFlag(FLAG_N);
 
                 //if ((((getHL() & 0xFFF) + (ac2.val & 0xFFF)) & 0x1000) > 0)
-                if ((((getHL() & 0xFFF) + (dataBus & 0xFFF)) & 0x1000) > 0)
-                    setFlag(FLAG_HALFCARRY);
+                if ((((getHL() & 0xFFF) + (wrk & 0xFFF)) & 0x1000) > 0)
+                    setFlag(FLAG_H);
                 else
-                    unsetFlag(FLAG_HALFCARRY);
+                    unsetFlag(FLAG_H);
 
+                dataBus = wrk;
+                break;
+            case ADD_IY:
+                wrk = IY + dataBus;
+
+                if (wrk > 0xffff)
+                    setFlag(FLAG_C);
+                else
+                    unsetFlag(FLAG_C);
+
+                unsetFlag(FLAG_N);
+
+                //if ((((getHL() & 0xFFF) + (ac2.val & 0xFFF)) & 0x1000) > 0)
+                if ((((getHL() & 0xFFF) + (wrk & 0xFFF)) & 0x1000) > 0)
+                    setFlag(FLAG_H);
+                else
+                    unsetFlag(FLAG_H);
+
+                dataBus = wrk;
                 break;
             case ADD:
-                int wrk = A + dataBus;
+                wrk = A + dataBus;
 
                 if (wrk > 0xff) {
-                    setFlag(FLAG_CARRY);
-                    setFlag(FLAG_PARITY_OVERFLOW);
+                    setFlag(FLAG_C);
                 } else {
-                    unsetFlag(FLAG_CARRY);
-                    unsetFlag(FLAG_PARITY_OVERFLOW);
+                    unsetFlag(FLAG_C);
                 }
 
                 handleZeroFlag(wrk & 0xff);
                 handleSignFlag(wrk & 0xff);
 
-                unsetFlag(FLAG_SUB);
+                unsetFlag(FLAG_N);
+
+                if (((A & 0x80) == (dataBus & 0x80)) && ((A & 0x80) != (wrk & 0x80)))
+                    setFlag(FLAG_PV, true);
+                else
+                    setFlag(FLAG_PV, false);
 
                 if (((A & 0xF) + (dataBus & 0xF)) > 0xF)
-                    setFlag(FLAG_HALFCARRY);
+                    setFlag(FLAG_H);
                 else
-                    unsetFlag(FLAG_HALFCARRY);
+                    unsetFlag(FLAG_H);
+
+                handle53Flag(wrk);
 
                 A = wrk & 0xff;
 
                 break;
             case ADC:
-                wrk = A + dataBus + (testFlag(FLAG_CARRY) ? 1 : 0);
+                wrk = A + dataBus + (testFlag(FLAG_C) ? 1 : 0);
 
                 handleZeroFlag(wrk & 0xff);
                 handleSignFlag(wrk & 0xff);
                 if (wrk > 0xff)
-                    setFlag(FLAG_CARRY);
+                    setFlag(FLAG_C);
                 else
-                    unsetFlag(FLAG_CARRY);
+                    unsetFlag(FLAG_C);
 
-                unsetFlag(FLAG_SUB);
+                unsetFlag(FLAG_N);
 
                 if (((A ^ dataBus ^ wrk) & 0x10) > 0)
-                    setFlag(FLAG_HALFCARRY);
+                    setFlag(FLAG_H);
                 else
-                    unsetFlag(FLAG_HALFCARRY);
+                    unsetFlag(FLAG_H);
+
+                if (((A & 0x80) == (dataBus & 0x80)) && ((A & 0x80) != (wrk & 0x80)))
+                    setFlag(FLAG_PV, true);
+                else
+                    setFlag(FLAG_PV, false);
+
+                handle53Flag(wrk);
 
                 A = wrk & 0xff;
 
@@ -466,56 +524,73 @@ public class CPU {
                 wrk = A - dataBus;
 
                 if (dataBus > A)
-                    setFlag(FLAG_CARRY);
+                    setFlag(FLAG_C);
                 else
-                    unsetFlag(FLAG_CARRY);
+                    unsetFlag(FLAG_C);
 
                 handleZeroFlag(wrk & 0xff);
                 handleSignFlag(wrk & 0xff);
-                setFlag(FLAG_SUB);
+                setFlag(FLAG_N);
 
                 if (((A ^ dataBus ^ wrk) & 0x10) > 0)
-                    setFlag(FLAG_HALFCARRY);
+                    setFlag(FLAG_H);
                 else
-                    unsetFlag(FLAG_HALFCARRY);
+                    unsetFlag(FLAG_H);
+
+                if (((A & 0x80) != (dataBus & 0x80)) && ((A & 0x80) != (wrk & 0x80)))
+                    setFlag(FLAG_PV, true);
+                else
+                    setFlag(FLAG_PV, false);
+
+                handle53Flag(wrk);
 
                 A = wrk & 0xff;
 
                 break;
             case SBC:
-                wrk = A - ((dataBus & 0xff) + (testFlag(FLAG_CARRY) ? 1 : 0));
+                wrk = A - ((dataBus & 0xff) + (testFlag(FLAG_C) ? 1 : 0));
 
-                if ((wrk & 0xFF) > 0) unsetFlag(FLAG_ZERO);
-                else setFlag(FLAG_ZERO);
-                if ((wrk & 0x100) > 0) setFlag(FLAG_CARRY);
-                else unsetFlag(FLAG_CARRY);
-                if (((A ^ dataBus ^ wrk) & 0x10) != 0) setFlag(FLAG_HALFCARRY);
-                else unsetFlag(FLAG_HALFCARRY);
+                if ((wrk & 0xFF) > 0) unsetFlag(FLAG_Z);
+                else setFlag(FLAG_Z);
+                if ((wrk & 0x100) > 0) setFlag(FLAG_C);
+                else unsetFlag(FLAG_C);
+                if (((A ^ dataBus ^ wrk) & 0x10) != 0) setFlag(FLAG_H);
+                else unsetFlag(FLAG_H);
 
-                setFlag(FLAG_SUB);
+                if ((wrk & 0x80) > 0) setFlag(FLAG_S);
+                unsetFlag(FLAG_S);
+
+                if (((A & 0x80) != (dataBus & 0x80)) && ((A & 0x80) != (wrk & 0x80)))
+                    setFlag(FLAG_PV, true);
+                else
+                    setFlag(FLAG_PV, false);
+
+                setFlag(FLAG_N);
+
+                handle53Flag(wrk);
 
                 A = wrk & 0xff;
                 break;
             case SBC_HL:
                 // TODO: this was invented, check it properly
-                wrk = getHL() - ((dataBus & 0xffff) + (testFlag(FLAG_CARRY) ? 1 : 0));
-                if ((wrk & 0xffff) == 0) setFlag(FLAG_ZERO);
-                else unsetFlag(FLAG_ZERO);
+                wrk = getHL() - ((dataBus & 0xffff) + (testFlag(FLAG_C) ? 1 : 0));
+                if ((wrk & 0xffff) == 0) setFlag(FLAG_Z);
+                else unsetFlag(FLAG_Z);
 
-                setFlag(FLAG_SUB);
+                setFlag(FLAG_N);
 
-                if ((wrk & 0x8000) > 0) setFlag(FLAG_SIGN);
-                else unsetFlag(FLAG_SIGN);
+                if ((wrk & 0x8000) > 0) setFlag(FLAG_S);
+                else unsetFlag(FLAG_S);
 
-                if ((wrk & 0x10000) > 0) setFlag(FLAG_CARRY);
-                else unsetFlag(FLAG_CARRY);
+                if ((wrk & 0x10000) > 0) setFlag(FLAG_C);
+                else unsetFlag(FLAG_C);
 
-                if ((((getHL() & 0x0FFF) - (dataBus & 0x0FFF)) & 0x1000) > 0) setFlag(FLAG_HALFCARRY);
-                else unsetFlag(FLAG_HALFCARRY);
+                if ((((getHL() & 0x0FFF) - (dataBus & 0x0FFF)) & 0x1000) > 0) setFlag(FLAG_H);
+                else unsetFlag(FLAG_H);
 
                 if ((((getHL() & 0x8000) != (dataBus & 0x8000))) &&
-                        ((wrk & 0x8000) != (getHL() & 0x8000))) setFlag(FLAG_PARITY_OVERFLOW);
-                else unsetFlag(FLAG_PARITY_OVERFLOW);
+                        ((wrk & 0x8000) != (getHL() & 0x8000))) setFlag(FLAG_PV);
+                else unsetFlag(FLAG_PV);
 
                 setHL(wrk);
                 break;
@@ -526,49 +601,54 @@ public class CPU {
                 handleZeroFlag(wrk);
                 handleSignFlag(wrk & 0xff);
                 handleParityFlag(wrk);
-                unsetFlag(FLAG_SUB);
-                unsetFlag(FLAG_CARRY);
-                setFlag(FLAG_HALFCARRY);
-//                if (displayInstruction)
-//                    System.out.println("and val:" + Utils.toHex2(dataBus));
+                unsetFlag(FLAG_N);
+                unsetFlag(FLAG_C);
+                setFlag(FLAG_H);
+
+                handle53Flag(wrk);
+
                 break;
             case XOR:
                 wrk = A ^ dataBus;
                 handleZeroFlag(wrk & 0xff);
                 handleSignFlag(wrk & 0xff);
                 handleParityFlag(wrk);
-                unsetFlag(FLAG_SUB);
-                unsetFlag(FLAG_CARRY);
-                unsetFlag(FLAG_HALFCARRY);
+                unsetFlag(FLAG_N);
+                unsetFlag(FLAG_C);
+                unsetFlag(FLAG_H);
                 A = wrk & 0xff;
+                handle53Flag(wrk);
                 break;
             case OR:
                 wrk = A | dataBus;
                 handleZeroFlag(wrk & 0xff);
                 handleSignFlag(wrk & 0xff);
                 handleParityFlag(wrk);
-                unsetFlag(FLAG_SUB);
-                unsetFlag(FLAG_CARRY);
-                unsetFlag(FLAG_HALFCARRY);
+                unsetFlag(FLAG_N);
+                unsetFlag(FLAG_C);
+                unsetFlag(FLAG_H);
                 A = wrk & 0xff;
+                handle53Flag(wrk);
                 break;
             case CP:
                 wrk = A - dataBus;
 
                 handleZeroFlag(wrk & 0xff);
                 handleSignFlag(wrk & 0xff);
-                unsetFlag(FLAG_PARITY_OVERFLOW);
+                unsetFlag(FLAG_PV);
 
-                setFlag(FLAG_SUB);
+                setFlag(FLAG_N);
                 if (A < dataBus)
-                    setFlag(FLAG_CARRY);
+                    setFlag(FLAG_C);
                 else
-                    unsetFlag(FLAG_CARRY);
+                    unsetFlag(FLAG_C);
 
                 if ((A & 0xF) < (dataBus & 0xF))
-                    setFlag(FLAG_HALFCARRY);
+                    setFlag(FLAG_H);
                 else
-                    unsetFlag(FLAG_HALFCARRY);
+                    unsetFlag(FLAG_H);
+
+                handle53Flag(wrk);
 
                 break;
 //            case CPL:
@@ -592,56 +672,56 @@ public class CPU {
 
                 carryOut = ((dataBus & 0x80) > 0) ? 1 : 0;
 
-                if (carryOut == 1) setFlag(FLAG_CARRY);
-                else unsetFlag(FLAG_CARRY);
+                if (carryOut == 1) setFlag(FLAG_C);
+                else unsetFlag(FLAG_C);
 
                 wrk = (dataBus << 1) + carryOut;
-                unsetFlag(FLAG_ZERO);
-                unsetFlag(FLAG_SUB);
-                unsetFlag(FLAG_HALFCARRY);
+                unsetFlag(FLAG_Z);
+                unsetFlag(FLAG_N);
+                unsetFlag(FLAG_H);
                 dataBus = wrk & 0xff;
 
                 break;
             case RRC:
                 carryOut = ((dataBus & 0x01) > 0) ? 1 : 0;
-                if (carryOut == 1) setFlag(FLAG_CARRY);
-                else unsetFlag(FLAG_CARRY);
+                if (carryOut == 1) setFlag(FLAG_C);
+                else unsetFlag(FLAG_C);
                 wrk = (dataBus >> 1) + (carryOut << 7);
-                unsetFlag(FLAG_ZERO);
-                unsetFlag(FLAG_SUB);
-                unsetFlag(FLAG_HALFCARRY);
+                unsetFlag(FLAG_Z);
+                unsetFlag(FLAG_N);
+                unsetFlag(FLAG_H);
                 dataBus = wrk;
                 break;
             case RL:
                 dataBus = dataBus << 1;
-                if (testFlag(FLAG_CARRY))
+                if (testFlag(FLAG_C))
                     dataBus |= 1;
                 if (dataBus > 0xff)
-                    setFlag(FLAG_CARRY);
+                    setFlag(FLAG_C);
                 else
-                    unsetFlag(FLAG_CARRY);
+                    unsetFlag(FLAG_C);
                 dataBus = dataBus & 0xff;
 
-                unsetFlag(FLAG_ZERO);
-                unsetFlag(FLAG_SUB);
-                unsetFlag(FLAG_HALFCARRY);
+                unsetFlag(FLAG_Z);
+                unsetFlag(FLAG_N);
+                unsetFlag(FLAG_H);
 
                 break;
             case RR:
 
-                carryIn = testFlag(FLAG_CARRY) ? 1 : 0;
+                carryIn = testFlag(FLAG_C) ? 1 : 0;
                 carryOut = ((dataBus & 0x01) > 0) ? 1 : 0;
 
                 dataBus = (dataBus >> 1) + (carryIn << 7);
 
                 if (carryOut == 1)
-                    setFlag(FLAG_CARRY);
+                    setFlag(FLAG_C);
                 else
-                    unsetFlag(FLAG_CARRY);
+                    unsetFlag(FLAG_C);
 
-                unsetFlag(FLAG_SUB);
-                unsetFlag(FLAG_HALFCARRY);
-                unsetFlag(FLAG_ZERO);
+                unsetFlag(FLAG_N);
+                unsetFlag(FLAG_H);
+                unsetFlag(FLAG_Z);
 
                 break;
             case SLA:
@@ -649,12 +729,12 @@ public class CPU {
                 // The contents of bit 7 are copied to the carry flag and a zero is put into bit 0.
                 carryOut = (dataBus & 0x80);
 
-                if (carryOut > 0) setFlag(FLAG_CARRY);
-                else unsetFlag(FLAG_CARRY);
+                if (carryOut > 0) setFlag(FLAG_C);
+                else unsetFlag(FLAG_C);
 
-                unsetFlag(FLAG_SUB);
-                unsetFlag(FLAG_HALFCARRY);
-                unsetFlag(FLAG_ZERO);
+                unsetFlag(FLAG_N);
+                unsetFlag(FLAG_H);
+                unsetFlag(FLAG_Z);
 
                 wrk = dataBus << 1;
                 dataBus = wrk;
@@ -666,12 +746,12 @@ public class CPU {
                 carryOut = (dataBus & 1);
                 carryIn = (dataBus & 0x80);
 
-                if (carryOut > 0) setFlag(FLAG_CARRY);
-                else unsetFlag(FLAG_CARRY);
+                if (carryOut > 0) setFlag(FLAG_C);
+                else unsetFlag(FLAG_C);
 
-                unsetFlag(FLAG_SUB);
-                unsetFlag(FLAG_HALFCARRY);
-                unsetFlag(FLAG_ZERO);
+                unsetFlag(FLAG_N);
+                unsetFlag(FLAG_H);
+                unsetFlag(FLAG_Z);
 
                 wrk = dataBus >> 1;
 
@@ -685,12 +765,12 @@ public class CPU {
                 // The contents of bit 7 are put into the carry flag and a one is put into bit 0.
                 carryOut = (dataBus & 0x80);
 
-                if (carryOut > 0) setFlag(FLAG_CARRY);
-                else unsetFlag(FLAG_CARRY);
+                if (carryOut > 0) setFlag(FLAG_C);
+                else unsetFlag(FLAG_C);
 
-                unsetFlag(FLAG_SUB);
-                unsetFlag(FLAG_HALFCARRY);
-                unsetFlag(FLAG_ZERO);
+                unsetFlag(FLAG_N);
+                unsetFlag(FLAG_H);
+                unsetFlag(FLAG_Z);
 
                 wrk = dataBus << 1;
                 wrk |= 1; // Put 1 into bit 0
@@ -703,12 +783,12 @@ public class CPU {
                 // The contents of bit 0 are copied to the carry flag and a zero is put into bit 7.
                 carryOut = (dataBus & 1);
 
-                if (carryOut > 0) setFlag(FLAG_CARRY);
-                else unsetFlag(FLAG_CARRY);
+                if (carryOut > 0) setFlag(FLAG_C);
+                else unsetFlag(FLAG_C);
 
-                unsetFlag(FLAG_SUB);
-                unsetFlag(FLAG_HALFCARRY);
-                unsetFlag(FLAG_ZERO);
+                unsetFlag(FLAG_N);
+                unsetFlag(FLAG_H);
+                unsetFlag(FLAG_Z);
 
                 wrk = dataBus >> 1;
                 wrk &= 0x7F; // Set bit 7 to zero
@@ -720,22 +800,22 @@ public class CPU {
 
                 break;
             case JRNZ:
-                if (!testFlag(FLAG_ZERO)) {
+                if (!testFlag(FLAG_Z)) {
                     jumpRelative(dataBus);
                 }
                 break;
             case JRZ:
-                if (testFlag(FLAG_ZERO)) {
+                if (testFlag(FLAG_Z)) {
                     jumpRelative(dataBus);
                 }
                 break;
             case JRNC:
-                if (!testFlag(FLAG_CARRY)) {
+                if (!testFlag(FLAG_C)) {
                     jumpRelative(dataBus);
                 }
                 break;
             case JRC:
-                if (testFlag(FLAG_CARRY)) {
+                if (testFlag(FLAG_C)) {
                     jumpRelative(dataBus);
                 }
                 break;
@@ -744,37 +824,37 @@ public class CPU {
 
                 break;
             case JPZ:
-                if (testFlag(FLAG_ZERO)) {
+                if (testFlag(FLAG_Z)) {
                     PC = addrBus;
                 }
                 break;
             case JPNZ:
-                if (!testFlag(FLAG_ZERO)) {
+                if (!testFlag(FLAG_Z)) {
                     PC = addrBus;
                 }
                 break;
             case JPNC:
-                if (!testFlag(FLAG_CARRY)) {
+                if (!testFlag(FLAG_C)) {
                     PC = addrBus;
                 }
                 break;
             case JP_PO:
-                if (!testFlag(FLAG_PARITY_OVERFLOW)) {
+                if (!testFlag(FLAG_PV)) {
                     PC = addrBus;
                 }
                 break;
             case JP_PE:
-                if (testFlag(FLAG_PARITY_OVERFLOW)) {
+                if (testFlag(FLAG_PV)) {
                     PC = addrBus;
                 }
                 break;
             case JP_P:
-                if (!testFlag(FLAG_SIGN)) {
+                if (!testFlag(FLAG_S)) {
                     PC = addrBus;
                 }
                 break;
             case JP_M:
-                if (testFlag(FLAG_SIGN)) {
+                if (testFlag(FLAG_S)) {
                     PC = addrBus;
                 }
                 break;
@@ -785,7 +865,7 @@ public class CPU {
                 }
                 break;
             case JPC:
-                if (testFlag(FLAG_CARRY)) {
+                if (testFlag(FLAG_C)) {
                     PC = addrBus;
                 }
                 break;
@@ -802,96 +882,107 @@ public class CPU {
                 enableInterrupts();
                 break;
             case RETZ:
-                if (testFlag(FLAG_ZERO)) {
+                if (testFlag(FLAG_Z)) {
                     wrk = popW();
                     PC = wrk;
                 }
                 break;
             case RETNZ:
-                if (!testFlag(FLAG_ZERO)) {
+                if (!testFlag(FLAG_Z)) {
                     wrk = popW();
                     PC = wrk;
                 }
                 break;
             case RETNC:
-                if (!testFlag(FLAG_CARRY)) {
+                if (!testFlag(FLAG_C)) {
                     PC = popW();
                 }
                 break;
             case RETC:
-                if (testFlag(FLAG_CARRY)) {
+                if (testFlag(FLAG_C)) {
                     PC = popW();
                 }
                 break;
             case RET_PO:
-                if (!testFlag(FLAG_PARITY_OVERFLOW)) {
+                if (!testFlag(FLAG_PV)) {
                     PC = popW();
                 }
                 break;
             case RET_P:
-                if (!testFlag(FLAG_SIGN)) {
+                if (!testFlag(FLAG_S)) {
                     PC = popW();
                 }
                 break;
             case OUT:
                 // TODO the port stuff needs to be implemented
+                wrk = 0;
                 break;
             case IN:
-                // TODO the port stuff needs to be implemented
-                dataBus = 0; // DUMMY
+                dataBus = mem.getPort(addrBus);
                 break;
             case FETCH_PORT_C:
                 // TODO the port stuff needs to be implemented
                 // This should use the C register to get data from port N
-                dataBus = 0;
+//                if (getBC() == 0xFDFE) {
+//                    if (Math.random()<0.01) dataBus = (int)(Math.random()*0xff); //0x1E;
+//                    else dataBus = 0x1F;
+//                }
+//                else dataBus = 0x1F;
+
+                dataBus = mem.getPort(getBC());
+//                System.out.println(dataBus);
+
                 break;
             case DAA: // Decimal Adjust Accumulator to get a correct BCD representation after an arithmetic instruction
 
                 int correction = 0;
-                boolean flagN = testFlag(FLAG_SUB);
-                boolean flagH = testFlag(FLAG_HALFCARRY);
-                boolean flagC = testFlag(FLAG_CARRY);
+                boolean flagN = testFlag(FLAG_N);
+                boolean flagH = testFlag(FLAG_H);
+                boolean flagC = testFlag(FLAG_C);
 
                 if (flagH || (!flagN && (A & 0xF) > 9))
                     correction = 6;
 
                 if (flagC || (!flagN && A > 0x99)) {
                     correction |= 0x60;
-                    setFlag(FLAG_CARRY);
+                    setFlag(FLAG_C);
                 }
 
                 dataBus = A;
                 dataBus += flagN ? -correction : correction;
                 dataBus &= 0xFF;
 
-                unsetFlag(FLAG_HALFCARRY);
+                unsetFlag(FLAG_H);
 
                 handleZeroFlag(dataBus);
                 handleSignFlag(dataBus & 0xff);
+                handleParityFlag(dataBus & 0xff);
                 A = dataBus;
 
                 break;
             case CPL: // ComPLement accumulator (A = ~A).
                 dataBus = A ^ 0xFF;
-                setFlag(FLAG_SUB);
-                setFlag(FLAG_HALFCARRY);
+                setFlag(FLAG_N);
+                setFlag(FLAG_H);
                 A = dataBus & 0xff;
                 break;
             case SCF: // Set carry flag
-                setFlag(FLAG_CARRY);
-                unsetFlag(FLAG_SUB);
-                unsetFlag(FLAG_HALFCARRY);
+                setFlag(FLAG_C);
+                unsetFlag(FLAG_N);
+                unsetFlag(FLAG_H);
                 break;
             case CCF: // Clear carry flag
-                unsetFlag(FLAG_SUB);
-                unsetFlag(FLAG_HALFCARRY);
-                unsetFlag(FLAG_CARRY);
-                // Note, some docs say invert carry flag but I think it should clear it.
+                unsetFlag(FLAG_N);
 
-//                if (testFlag(FLAG_CARRY))
-//                    unsetFlag(FLAG_CARRY);
-//                else
-//                    setFlag(FLAG_CARRY);
+                if (testFlag(FLAG_C))
+                    setFlag(FLAG_H);
+                else
+                    unsetFlag(FLAG_H);
+
+                if (testFlag(FLAG_C))
+                    unsetFlag(FLAG_C);
+                else
+                    setFlag(FLAG_C);
                 break;
             case PUSHW:
                 pushW(dataBus);
@@ -903,25 +994,46 @@ public class CPU {
                 call(addrBus);
                 break;
             case CALLNZ:
-                if (!testFlag(FLAG_ZERO)) {
+                if (!testFlag(FLAG_Z)) {
                     call(addrBus);
                 }
                 break;
             case CALLZ:
-                if (testFlag(FLAG_ZERO)) {
+                if (testFlag(FLAG_Z)) {
                     call(addrBus);
                 }
                 break;
             case CALLC:
-                if (testFlag(FLAG_CARRY)) {
+                if (testFlag(FLAG_C)) {
                     call(addrBus);
                 }
                 break;
             case CALLNC:
-                if (!testFlag(FLAG_CARRY)) {
+                if (!testFlag(FLAG_C)) {
                     call(addrBus);
                 }
                 break;
+            case CALLPO:
+                if (!testFlag(FLAG_PV)) {
+                    call(addrBus);
+                }
+                break;
+            case CALLP:
+                if (!testFlag(FLAG_S)) {
+                    call(addrBus);
+                }
+                break;
+            case CALLM:
+                if (testFlag(FLAG_S)) {
+                    call(addrBus);
+                }
+                break;
+            case CALLPE:
+                if (testFlag(FLAG_PV)) {
+                    call(addrBus);
+                }
+                break;
+
             case RST_18H:
                 jumpToInterrupt(0x0018);
                 break;
@@ -1035,17 +1147,17 @@ public class CPU {
                 wrk = SP + convertSignedByte(dataBus & 0xff);
 
                 if (((SP ^ convertSignedByte(dataBus & 0xff) ^ wrk) & 0x10) > 0)
-                    setFlag(FLAG_HALFCARRY);
+                    setFlag(FLAG_H);
                 else
-                    unsetFlag(FLAG_HALFCARRY);
+                    unsetFlag(FLAG_H);
 
                 if (((SP ^ convertSignedByte(dataBus & 0xff) ^ wrk) & 0x100) > 0)
-                    setFlag(FLAG_CARRY);
+                    setFlag(FLAG_C);
                 else
-                    unsetFlag(FLAG_CARRY);
+                    unsetFlag(FLAG_C);
 
-                unsetFlag(FLAG_ZERO);
-                unsetFlag(FLAG_SUB);
+                unsetFlag(FLAG_Z);
+                unsetFlag(FLAG_N);
 
                 SP = wrk;
 
@@ -1062,18 +1174,18 @@ public class CPU {
 
                 wrk = ptr & 0xffff;
 
-                unsetFlag(FLAG_SUB);
-                unsetFlag(FLAG_ZERO);
+                unsetFlag(FLAG_N);
+                unsetFlag(FLAG_Z);
 
                 if (((SP ^ signedByte ^ wrk) & 0x100) == 0x100)
-                    setFlag(FLAG_CARRY);
+                    setFlag(FLAG_C);
                 else
-                    unsetFlag(FLAG_CARRY);
+                    unsetFlag(FLAG_C);
 
                 if (((SP ^ signedByte ^ wrk) & 0x10) == 0x10)
-                    setFlag(FLAG_HALFCARRY);
+                    setFlag(FLAG_H);
                 else
-                    unsetFlag(FLAG_HALFCARRY);
+                    unsetFlag(FLAG_H);
 
                 setHL(wrk);
 
@@ -1110,24 +1222,29 @@ public class CPU {
             case LDIR:
                 do {
                     ed_ldi();
-                } while (testFlag(FLAG_PARITY_OVERFLOW));
+                } while (testFlag(FLAG_PV));
+
+                unsetFlag(FLAG_PV);
+
                 break;
             case LDDR:
+                int lddrCount = 0;
                 do {
+                    lddrCount++;
                     dataBus = mem.peek(getHL());
                     mem.poke(getDE(), dataBus);
                     setDE(getDE() - 1);
                     setHL(getHL() - 1);
                     setBC(getBC() - 1);
-                    System.out.println("LDDR " + (char) dataBus + "  " + dataBus);
+
                 } while (getBC() != 0);
+                System.out.println("LDDR count:" + lddrCount);
                 break;
             case IM_0:
                 setInterruptMode(0);
                 break;
             case IM_1:
                 setInterruptMode(1);
-
                 break;
             case IM_2:
                 setInterruptMode(2);
@@ -1161,10 +1278,14 @@ public class CPU {
         incHL();
         incDE();
         decBC();
-        if (getBC() == 0) unsetFlag(FLAG_PARITY_OVERFLOW);
-        else setFlag(FLAG_PARITY_OVERFLOW);
 
-        System.out.println("LDI " + (char) data + "  " + data);
+        if (getBC() == 0) unsetFlag(FLAG_PV);
+        else setFlag(FLAG_PV);
+
+        unsetFlag(FLAG_N);
+        unsetFlag(FLAG_H);
+
+        //System.out.println("LDI " + (char) data + "  " + data);
     }
 
     private void ed_cpi() {
@@ -1213,11 +1334,13 @@ public class CPU {
     }
 
     private void setInterruptMode(int i) {
-        // TODO: finish this
+        interruptMode = i;
     }
 
     public int setBit(int val, int bit) {
-        return val | (1 << bit);
+        int work = val | (1 << bit);
+//        System.out.println(val + " -> " + work);
+        return work;
     }
 
     public int resetBit(int val, int bit) {
@@ -1226,16 +1349,21 @@ public class CPU {
 
     public void testBit(int val, int bit) {
         if ((val & (1 << bit)) == 0) {
-            setFlag(FLAG_ZERO);
-            setFlag(FLAG_PARITY_OVERFLOW);
+            setFlag(FLAG_Z);
+            setFlag(FLAG_PV);
         } else {
-            unsetFlag(FLAG_ZERO);
-            unsetFlag(FLAG_PARITY_OVERFLOW);
+            unsetFlag(FLAG_Z);
+            unsetFlag(FLAG_PV);
         }
 
-        unsetFlag(FLAG_SIGN);
-        setFlag(FLAG_HALFCARRY);
 
+        unsetFlag(FLAG_N);
+        setFlag(FLAG_H);
+
+        if (bit == 7 && !testFlag(FLAG_Z)) setFlag(FLAG_S);
+        else unsetFlag(FLAG_S);
+
+        //System.out.println("BIT value was " + Utils.toHex2(val));
     }
 
 
@@ -1364,16 +1492,28 @@ public class CPU {
 
     public void handleZeroFlag(int val) {
         if ((val & 0xffff) == 0)
-            setFlag(FLAG_ZERO);
+            setFlag(FLAG_Z);
         else
-            unsetFlag(FLAG_ZERO);
+            unsetFlag(FLAG_Z);
     }
 
     public void handleSignFlag(int val) {
         if ((val & 0x80) > 0)
-            setFlag(FLAG_SIGN);
+            setFlag(FLAG_S);
         else
-            unsetFlag(FLAG_SIGN);
+            unsetFlag(FLAG_S);
+    }
+
+    public void handle53Flag(int val) {
+        if ((val & 0x20) > 0)
+            setFlag(FLAG_5);
+        else
+            unsetFlag(FLAG_5);
+
+        if ((val & 0x08) > 0)
+            setFlag(FLAG_3);
+        else
+            unsetFlag(FLAG_3);
     }
 
     public void handleParityFlag(int val) {
@@ -1388,9 +1528,9 @@ public class CPU {
         if ((val & 0b1000_0000) > 0) count++;
 
         if ((count & 0x01) == 0)
-            setFlag(FLAG_PARITY_OVERFLOW);
+            setFlag(FLAG_PV);
         else
-            unsetFlag(FLAG_PARITY_OVERFLOW);
+            unsetFlag(FLAG_PV);
     }
 
     // Get word at PC and move PC on.
@@ -1409,6 +1549,13 @@ public class CPU {
         FL |= flag;
     }
 
+    public void setFlag(int flag, boolean target) {
+        if (target)
+            FL |= flag;
+        else
+            FL &= ~(flag);
+    }
+
     public void unsetFlag(int flag) {
         FL &= ~(flag);
     }
@@ -1419,8 +1566,10 @@ public class CPU {
 
     // STACK
     public void pushW(int val) {
-        mem.poke((--SP) & 0xffff, getHighByte(val));
-        mem.poke((--SP) & 0xffff, getLowByte(val));
+        SP = (SP - 1) & 0xffff;
+        mem.poke(SP, getHighByte(val));
+        SP = (SP - 1) & 0xffff;
+        mem.poke(SP, getLowByte(val));
 
     }
 

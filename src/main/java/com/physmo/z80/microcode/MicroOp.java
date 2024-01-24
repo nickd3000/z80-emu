@@ -43,8 +43,7 @@ public enum MicroOp {
     FETCH_PC,    // Read Program Counter to temp
     FETCH_pBC,   // Read value in memory location BC to temp
     FETCH_pIY_D,    // Read value in memory location (IY + D) to temp
-    FETCH_pIY_D_FDCB,    // Read value in memory location (IY + D) to temp
-    FETCH_BYTE_TO_D, // Fetch the next byte to the special D store for use int the (IY + D) commands.
+    FETCH_BYTE_TO_DISPLACEMENT, // Fetch the next byte to the special D store for use int the (IY + D) commands.
 
     FETCH_8_ADDRESS,    // Fetches the next 1 byte onto the lower end of the address bus
     FETCH_16_ADDRESS, // Fetches the next 2 bytes onto the Address bus
@@ -68,12 +67,11 @@ public enum MicroOp {
     STORE_IX,
     STORE_IY,
     STORE_pIY_D,
-    STORE_pIY_D_FDCB,
     STORE_pHL,
 
 
     ADD_HL,    // Add HL to temp
-
+    ADD_IY,
 
     RLC,
     STOP,
@@ -136,7 +134,7 @@ public enum MicroOp {
     JP_PO, JP_PE, JP_P, JP_M,
 
     // CALL
-    CALLZ, CALLC, CALLNC, CALL,
+    CALLZ, CALLC, CALLNC, CALL, CALLPO, CALLP, CALLPE, CALLM,
 
     // PORT IN/OUT
     OUT,
