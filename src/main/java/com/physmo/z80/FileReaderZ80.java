@@ -24,7 +24,9 @@ public class FileReaderZ80 {
         for (int i = 0; i < 30; i++) {
             header[i] = in.read();
         }
-        System.out.println("Read header");
+        System.out.println("Read header ");
+        System.out.println("Info byte: " + Utils.toBinary(header[12]));
+
 
         cpu.A = header[0];
         cpu.FL = header[1];
@@ -46,7 +48,8 @@ public class FileReaderZ80 {
         //cpu.F_ = header[22];
         cpu.IY = makeWord(header[23], header[24]);
         cpu.IX = makeWord(header[25], header[26]);
-
+        if (header[27] != 0) cpu.interruptEnabled = 1;
+        else cpu.interruptEnabled = 0;
         int info2 = header[29];
         cpu.interruptMode = info2 & 3;
 

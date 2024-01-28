@@ -56,6 +56,10 @@ public class Utils {
         return String.format("%04X", v);
     }
 
+    public static String toBinary(int v) {
+        return "0b" + Integer.toBinaryString(v);
+    }
+
     // Messy function to add spaces to a string to bring it up to a certain length.
     public static String padToLength(String str, int length) {
         String spaces = "                                                             ";

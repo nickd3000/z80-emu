@@ -7,6 +7,7 @@ public enum MicroOp {
     PREFIX_ED,
     PREFIX_FD,
     PREFIX_FD_CB,
+    PREFIX_DD,
 
     INC_8,      // INC temp (8 bit)
     INC_16,     // INC temp (16 bit)
@@ -18,6 +19,8 @@ public enum MicroOp {
     ADD_16,
     SUB_8,
     SUB_16,
+
+    NONE,       // Used to do nothing (for auto generated microcodes)
 
     FETCH_A,     // Read register A to temp
     FETCH_B,     // Read register B to temp
@@ -39,10 +42,15 @@ public enum MicroOp {
     FETCH_HL,    // Read register HL to temp
     FETCH_IX,    // Read register IX to temp
     FETCH_IY,    // Read register IX to temp
+    FETCH_IY_H,    // Read register IY high byte
+    FETCH_IY_L,    // Read register IY low byte
+    FETCH_IX_H,    // Read register IX high byte
+    FETCH_IX_L,    // Read register IX low byte
     FETCH_SP,    // Read Stack Pointer to temp
     FETCH_PC,    // Read Program Counter to temp
     FETCH_pBC,   // Read value in memory location BC to temp
     FETCH_pIY_D,    // Read value in memory location (IY + D) to temp
+    FETCH_pIX_D,    // Read value in memory location (IX + D) to temp
     FETCH_BYTE_TO_DISPLACEMENT, // Fetch the next byte to the special D store for use int the (IY + D) commands.
 
     FETCH_8_ADDRESS,    // Fetches the next 1 byte onto the lower end of the address bus
@@ -66,12 +74,19 @@ public enum MicroOp {
     STORE_SP,
     STORE_IX,
     STORE_IY,
+    STORE_IY_H,    // Store register IY high byte
+    STORE_IY_L,    // Store register IY low byte
+    STORE_IX_H,    // Store register IX high byte
+    STORE_IX_L,    // Store register IX low byte
     STORE_pIY_D,
+    STORE_pIX_D,
     STORE_pHL,
+    STORE_R,
 
 
     ADD_HL,    // Add HL to temp
     ADD_IY,
+    ADD_IX,
 
     RLC,
     STOP,
@@ -93,6 +108,9 @@ public enum MicroOp {
     RES0, RES1, RES2, RES3, RES4, RES5, RES6, RES7,
 
     RLA,
+    RLCA,
+    RRCA,
+    RRA,
     RL,
     RR,
     DAA,
@@ -115,6 +133,7 @@ public enum MicroOp {
     AND,
 
     SBC_HL, // 16 bit version applied to HL
+    ADC_HL,
 
     // RETURNS
     RET, RETI, RETZ, RETNZ,
@@ -160,6 +179,7 @@ public enum MicroOp {
     // Repeating versions of the special ED commands
     LDIR,
     LDDR, // Data copying loop
+    CPIR,
 
     LDZPGA, ADDSPNN,
     FETCH_ZPG,

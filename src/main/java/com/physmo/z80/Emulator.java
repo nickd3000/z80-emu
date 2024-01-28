@@ -15,6 +15,8 @@ public class Emulator {
     private final int displayScale = 2;
     List<Integer> breakpoints = new ArrayList<>();
     Render render = new Render();
+    KeyboardProcessor keyboardProcessor;
+    boolean showInstructions = true;
     private CPU cpu = null;
     private MEM mem = null;
 
@@ -27,11 +29,12 @@ public class Emulator {
         cpu.attachHardware(mem);
 
         Utils.ReadFileBytesToMemoryLocation(biosPath + "48.rom", mem.getRAM(), 0, false);
-//        Utils.ReadFileBytesToMemoryLocation(testPath + "z80doc.tap", mem.getRAM(), 0x8000, true);
+        Utils.ReadFileBytesToMemoryLocation(testPath + "z80doc.tap", mem.getRAM(), 0x8000, true);
 
         basicDisplay = new BasicDisplayAwt((256 + 10) * displayScale, (192 + 10) * displayScale);
         basicDisplay.setTitle("z80-emu");
 
+        keyboardProcessor = new KeyboardProcessor(basicDisplay, cpu);
 
     }
 
@@ -40,12 +43,26 @@ public class Emulator {
         emulator.run();
     }
 
+
     public void loadZ80() {
         FileReaderZ80 fileReaderZ80 = new FileReaderZ80();
-        fileReaderZ80.readFile(romPath + "FindersKeepers.z80", cpu);
+//        fileReaderZ80.readFile(romPath + "FindersKeepers.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"DONKKONG.Z80", cpu);
 //        fileReaderZ80.readFile(romPath+"MAGICCAS.Z80", cpu); // bad
 //        fileReaderZ80.readFile(romPath+"JETSETW1.Z80", cpu);
+
+//        fileReaderZ80.readFile(romPath+"1942.z80", cpu); // all fail to load
+//        fileReaderZ80.readFile(romPath+"ActionBiker.z80", cpu); // all fail to load
+//        fileReaderZ80.readFile(romPath+"Airwolf.z80", cpu); // all fail to load
+//        fileReaderZ80.readFile(romPath+"Arkanoid.z80", cpu); // all fail to load
+
+//        fileReaderZ80.readFile(romPath+"Jetpac.z80", cpu);
+
+//        fileReaderZ80.readFile(romPath+"BombJack.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"ChuckieEgg.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"HungryHorace.z80", cpu);
+        fileReaderZ80.readFile(romPath + "ManicMiner.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"SabreWulf.z80", cpu);
     }
 
     public void initBreakpoints() {
@@ -78,11 +95,17 @@ public class Emulator {
 
 //        breakpoints.add(0x0DD9); // CL-SET
 
-//        breakpoints.add(0x0DD9); // misc
+//        breakpoints.add(0x8DC9); // misc
 
 //        breakpoints.add(0x028E); // KEY-SCAN
 
-//                breakpoints.add(0x0038); // KEY-SCAN
+//        breakpoints.add(0x02A1); // KEY-BITS
+
+//        breakpoints.add(0x029D); // KEY DETECTED
+
+        // Jet Set Willy
+//        breakpoints.add(0x8912); // 8912: Initialise the current room
+//        breakpoints.add(0x8D33); // 8D33: Draw the current room to the screen buffer at 7000
     }
 
     public void interrupt() {
@@ -105,27 +128,33 @@ public class Emulator {
 
     private void run() {
         cpu.init();
-        cpu.PC = 0;//0x8000;
+        cpu.PC = 0; //0x8000;
 
         loadZ80();
 
         boolean breakPointHit = false;
 
-        int iterations = 3600000 * 5;// 639031 + 10;
+        int iterations = 3600000 * 55;// 639031 + 10;
 
         for (int i = 0; i < iterations; i++) {
+            if (i % 100 == 0) {
+                basicDisplay.tickInput();
+                processGui();
+            }
+
             if (i % 2000 == 0) interrupt();
 
             if (testBreakpoint(cpu.PC) && !breakPointHit) {
-                iterations = i + 15;
+                iterations = i + 35;
                 breakPointHit = true;
                 System.out.println("************* Breakpoint ****************");
             }
 
             cpu.tick(1);
-            System.out.println(cpu.dump());
 
-            if ((i & 5000) == 0) handleInput();
+            if (showInstructions) System.out.println(cpu.dump());
+
+            if ((i & 5000) == 0) keyboardProcessor.handleInput();
 
             if (i % 5000 == 0) {
                 render.render(basicDisplay, cpu, 2);
@@ -158,31 +187,30 @@ public class Emulator {
         System.out.println(stringBuilder);
     }
 
-    public void handleInput() {
-        basicDisplay.tickInput();
+    // By GUI, i mean debug keys
+    public void processGui() {
+
         int[] keyState = basicDisplay.getKeyState();
+        boolean control = basicDisplay.getKeyState()[KeyEvent.VK_CONTROL] > 0;
 
-        int F7FE = 0x1f;
-        if (keyState[KeyEvent.VK_1] > 0) {
-            F7FE = cpu.resetBit(F7FE, 0);
+        if (control && keyState[KeyEvent.VK_I] > 0) {
+            showInstructions = true;
+        }
+        if (control && keyState[KeyEvent.VK_O] > 0) {
+            showInstructions = false;
         }
 
-        int FDFE = 0x1f;
-        if (keyState[KeyEvent.VK_A] > 0) {
-            FDFE = cpu.resetBit(FDFE, 0);
-        }
-        if (keyState[KeyEvent.VK_D] > 0) {
-            FDFE = cpu.resetBit(FDFE, 2);
+        if (control && keyState[KeyEvent.VK_T] > 0) {
+            loadAndRunTests();
         }
 
-        mem.setPort(0xFEFE, 0x1F);
-        mem.setPort(0xFDFE, FDFE);
-        mem.setPort(0xFBFE, 0x1F);
-        mem.setPort(0xF7FE, F7FE);
-        mem.setPort(0xEFFE, 0x1F);
-        mem.setPort(0xDFFE, 0x1F);
-        mem.setPort(0xBFFE, 0x1F);
-        mem.setPort(0x7FFE, 0x1F);
+    }
+
+
+    public void loadAndRunTests() {
+
+        Utils.ReadFileBytesToMemoryLocation(testPath + "z80doc.tap", mem.getRAM(), 0x8000, true);
+        cpu.PC = 0x8000;
 
     }
 }

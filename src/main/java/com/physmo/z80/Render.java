@@ -9,6 +9,7 @@ public class Render {
     Color[] colors = new Color[16];
     Color fg = null;
     Color bg = null;
+    int renderTick = 0;
 
     public Render() {
         colors[0] = new Color(0x000000);
@@ -33,6 +34,8 @@ public class Render {
 
     public void render(BasicDisplay bd, CPU cpu, int scale) {
         int[] ram = cpu.mem.getRAM();
+
+        renderTick = ((renderTick + 1) & 0xffff);
 
         int numBytes = 192 * 32;
         int readHead = 0x4000;
@@ -69,14 +72,25 @@ public class Render {
         int ink = value & 0b0000_0111;
         int paper = (value & 0b0011_1000) >> 3;
         int brightness = (value & 0b0100_0000) >> 6;
+        int flash = (value & 0b1000_0000) >> 7;
 
         if (brightness > 0) {
             ink += 8;
             paper += 8;
         }
 
-        bg = colors[paper];
-        fg = colors[ink];
+        boolean flashOn = (renderTick & 0b0100) > 0;
+
+        if (flash == 0 || !flashOn) {
+            bg = colors[paper];
+            fg = colors[ink];
+        } else {
+            fg = colors[paper];
+            bg = colors[ink];
+        }
+
+
+
     }
 
 
@@ -94,6 +108,11 @@ public class Render {
         bd.drawFilledRect(10, cpu.H, 2 * scale, 2 * scale);
         bd.setDrawColor(Color.MAGENTA);
         bd.drawFilledRect(12, cpu.L, 2 * scale, 2 * scale);
+
+        bd.setDrawColor(Color.YELLOW);
+        bd.drawFilledRect((cpu.PC >> 8) * 2, 185 * 2, 2 * scale, 2 * scale);
+        bd.setDrawColor(Color.ORANGE);
+        bd.drawFilledRect((cpu.PC & 0xff) * 2, 175 * 2, 2 * scale, 2 * scale);
 
     }
 
