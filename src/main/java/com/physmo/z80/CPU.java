@@ -283,7 +283,7 @@ public class CPU {
                 break;
             case FETCH_BYTE_TO_DISPLACEMENT:
                 displacement = getNextByte();
-                lastData = "  d(" + Utils.toHex2(addrBus) + ")";
+                lastData = "  d(" + Utils.toHex2(displacement) + ")";
                 break;
             case SET_ADDR_FROM_A:
                 addrBus = A;
@@ -426,20 +426,18 @@ public class CPU {
             case ADD_HL:
                 wrk = getHL() + dataBus;
 
-                if (wrk > 0xffff)
-                    setFlag(FLAG_C);
-                else
-                    unsetFlag(FLAG_C);
+                setFlag(FLAG_C, wrk > 0xFFFF);
 
                 unsetFlag(FLAG_N);
 
-                //if ((((getHL() & 0xFFF) + (ac2.val & 0xFFF)) & 0x1000) > 0)
-                if ((((getHL() & 0xFFF) + (wrk & 0xFFF)) & 0x1000) > 0)
+                if ((((getHL() & 0x0FFF) + (dataBus & 0xFFF)) & 0x1000) > 0)
                     setFlag(FLAG_H);
                 else
                     unsetFlag(FLAG_H);
 
-                dataBus = wrk;
+                handle53Flag(H);
+
+                dataBus = wrk & 0xFFFF;
                 break;
             case ADD_IY:
                 wrk = IY + dataBus;
@@ -452,12 +450,12 @@ public class CPU {
                 unsetFlag(FLAG_N);
 
                 //if ((((getHL() & 0xFFF) + (ac2.val & 0xFFF)) & 0x1000) > 0)
-                if ((((getHL() & 0xFFF) + (wrk & 0xFFF)) & 0x1000) > 0)
+                if ((((IY & 0x0FFF) + (dataBus & 0x0FFF)) & 0x1000) > 0)
                     setFlag(FLAG_H);
                 else
                     unsetFlag(FLAG_H);
 
-                dataBus = wrk;
+                dataBus = wrk & 0xFFFF;
                 break;
             case ADD_IX:
                 wrk = IX + dataBus;
@@ -470,30 +468,23 @@ public class CPU {
                 unsetFlag(FLAG_N);
 
                 //if ((((getHL() & 0xFFF) + (ac2.val & 0xFFF)) & 0x1000) > 0)
-                if ((((getHL() & 0xFFF) + (wrk & 0xFFF)) & 0x1000) > 0)
+                if ((((IX & 0x0FFF) + (dataBus & 0x0FFF)) & 0x1000) > 0)
                     setFlag(FLAG_H);
                 else
                     unsetFlag(FLAG_H);
 
-                dataBus = wrk;
+                dataBus = wrk & 0xFFFF;
                 break;
             case ADD:
                 wrk = A + dataBus;
 
-                if (wrk > 0xff) {
-                    setFlag(FLAG_C);
-                } else {
-                    unsetFlag(FLAG_C);
-                }
-
+                setFlag(FLAG_C, wrk > 0xFF);
                 handleZeroFlag(wrk & 0xff);
                 handleSignFlag(wrk & 0xff);
-
                 unsetFlag(FLAG_N);
-
                 setFlag(FLAG_PV, ((A & 0x80) == (dataBus & 0x80)) && ((A & 0x80) != (wrk & 0x80)));
 
-                if (((A & 0xF) + (dataBus & 0xF)) > 0xF)
+                if ((((A & 0xF) + (dataBus & 0xF)) & 0x10) > 0)
                     setFlag(FLAG_H);
                 else
                     unsetFlag(FLAG_H);
@@ -554,25 +545,20 @@ public class CPU {
                 A = wrk & 0xff;
                 break;
             case SBC_HL:
+                dataBus += (testFlag(FLAG_C) ? 1 : 0);
+
                 // TODO: this was invented, check it properly
-                wrk = getHL() - ((dataBus & 0xffff) + (testFlag(FLAG_C) ? 1 : 0));
-                if ((wrk & 0xffff) == 0) setFlag(FLAG_Z);
-                else unsetFlag(FLAG_Z);
+                wrk = getHL() - dataBus;
+
+                setFlag(FLAG_S, (wrk & 0x8000) > 0);
+                setFlag(FLAG_Z, (wrk & 0xffff) == 0);
+
+                setFlag(FLAG_H, (((getHL() & 0x0FFF) - (dataBus & 0x0FFF)) & 0x1000) > 0);
+                setFlag(FLAG_PV, (((getHL() & 0x8000) != (dataBus & 0x8000))) &&
+                        ((wrk & 0x8000) != (getHL() & 0x8000)));
 
                 setFlag(FLAG_N);
-
-                if ((wrk & 0x8000) > 0) setFlag(FLAG_S);
-                else unsetFlag(FLAG_S);
-
-                if ((wrk & 0x10000) > 0) setFlag(FLAG_C);
-                else unsetFlag(FLAG_C);
-
-                if ((((getHL() & 0x0FFF) - (dataBus & 0x0FFF)) & 0x1000) > 0) setFlag(FLAG_H);
-                else unsetFlag(FLAG_H);
-
-                if ((((getHL() & 0x8000) != (dataBus & 0x8000))) &&
-                        ((wrk & 0x8000) != (getHL() & 0x8000))) setFlag(FLAG_PV);
-                else unsetFlag(FLAG_PV);
+                setFlag(FLAG_C, (wrk & 0x10000) > 0);
 
                 setHL(wrk);
                 break;
@@ -677,39 +663,34 @@ public class CPU {
             case SLA:
                 // The contents of the memory location pointed to by IY plus d are shifted left one bit position.
                 // The contents of bit 7 are copied to the carry flag and a zero is put into bit 0.
-                carryOut = (dataBus & 0x80);
 
-                if (carryOut > 0) setFlag(FLAG_C);
-                else unsetFlag(FLAG_C);
-
+                setFlag(FLAG_C, (dataBus & 0x80) > 0);
                 unsetFlag(FLAG_N);
                 unsetFlag(FLAG_H);
                 unsetFlag(FLAG_Z);
 
-                wrk = dataBus << 1;
+                wrk = (dataBus << 1) & 0xFF;
                 dataBus = wrk;
 
                 handleZeroFlag(wrk);
+                handle53Flag(wrk);
 
                 break;
             case SRA:
                 // The contents of the memory location pointed to by IY plus d are shifted right one bit position.
                 // The contents of bit 0 are copied to the carry flag and the previous contents of bit 7 are unchanged.
-                carryOut = (dataBus & 1);
-                carryIn = (dataBus & 0x80);
 
-                if (carryOut > 0) setFlag(FLAG_C);
-                else unsetFlag(FLAG_C);
+                setFlag(FLAG_C, (dataBus & 1) > 0);
 
                 unsetFlag(FLAG_N);
                 unsetFlag(FLAG_H);
-                unsetFlag(FLAG_Z);
 
-                wrk = dataBus >> 1;
-
-                if (carryIn > 0) wrk |= 0x80; // Add left most bit back.
+                wrk = ((dataBus >> 1) & 0x7F) | (dataBus & 0x80);
 
                 handleZeroFlag(wrk);
+                handleParityFlag(wrk);
+                setFlag(FLAG_S, (wrk & 0x80) > 0);
+                handle53Flag(wrk);
 
                 dataBus = wrk;
 
@@ -724,12 +705,12 @@ public class CPU {
 
                 unsetFlag(FLAG_N);
                 unsetFlag(FLAG_H);
-                unsetFlag(FLAG_Z);
 
-                wrk = dataBus << 1;
-                wrk |= 1; // Put 1 into bit 0
+                wrk = (dataBus << 1) | 1;
 
                 handleZeroFlag(wrk);
+                setFlag(FLAG_S, (wrk & 0x80) > 0);
+                handle53Flag(wrk);
 
                 dataBus = wrk;
 
@@ -744,17 +725,30 @@ public class CPU {
 
                 unsetFlag(FLAG_N);
                 unsetFlag(FLAG_H);
-                unsetFlag(FLAG_Z);
+                unsetFlag(FLAG_S);
 
-                wrk = dataBus >> 1;
-                wrk &= 0x7F; // Set bit 7 to zero
+                wrk = (dataBus >> 1) & 0x7F;
 
                 handleParityFlag(wrk);
                 handleZeroFlag(wrk);
+                handle53Flag(wrk);
 
                 dataBus = wrk;
 
+                break;
+            case NEG:
+                if (A != 0x80) {
+                    A = convertSignedByte(A);
+                    A = (-A) & 0xFF;
+                }
 
+                setFlag(FLAG_S, (A & 0x80) > 0);
+                setFlag(FLAG_Z, A != 0);
+                setFlag(FLAG_H, ((-A) & 0x80) > 0);
+                setFlag(FLAG_PV, (A == 0x80));
+                setFlag(FLAG_N);
+                setFlag(FLAG_C, A != 0);
+                handle53Flag(A);
                 break;
             case JRNZ:
                 if (!testFlag(FLAG_Z)) {
@@ -872,43 +866,26 @@ public class CPU {
                     PC = popW();
                 }
                 break;
+            case RET_PE:
+                if (testFlag(FLAG_PV)) {
+                    PC = popW();
+                }
+                break;
+            case RET_M:
+                if (testFlag(FLAG_S)) {
+                    PC = popW();
+                }
+                break;
             case OUT:
                 // TODO the port stuff needs to be implemented
                 wrk = 0;
                 break;
-            case IN:
-                addrBus = ((A & 0xff) << 8) | (dataBus & 0xff);
-
-                dataBus = mem.getPort(addrBus);
-
-                handle53Flag(dataBus);
-                unsetFlag(FLAG_H);
-                unsetFlag(FLAG_N);
-                setFlag(FLAG_Z, dataBus == 0);
-                handleSignFlag(dataBus);
-                handleZeroFlag(dataBus);
-                handleParityFlag(dataBus);
-
+            case IN: // Used for IN A, (n)
+                dataBus = doIn(((A & 0xff) << 8) | (dataBus & 0xff));
+                System.out.println(this.lastDecompile);
                 break;
             case FETCH_PORT_C:
-                // TODO the port stuff needs to be implemented
-                // This should use the C register to get data from port N
-//                if (getBC() == 0xFDFE) {
-//                    if (Math.random()<0.01) dataBus = (int)(Math.random()*0xff); //0x1E;
-//                    else dataBus = 0x1F;
-//                }
-//                else dataBus = 0x1F;
-
-                dataBus = mem.getPort(getBC() & 0xffff);
-//                System.out.println(dataBus);
-                handle53Flag(dataBus);
-                unsetFlag(FLAG_H);
-                unsetFlag(FLAG_N);
-                setFlag(FLAG_Z, dataBus == 0);
-                handleSignFlag(dataBus);
-                handleZeroFlag(dataBus);
-                handleParityFlag(dataBus);
-
+                dataBus = doIn(getBC() & 0xFFFF);
                 break;
             case DAA: // Decimal Adjust Accumulator to get a correct BCD representation after an arithmetic instruction
 
@@ -1193,39 +1170,38 @@ public class CPU {
 
                 break;
             case LDI:
-                ed_ldi();
+                doLDI();
                 break;
             case LDIR:
-                do {
-                    ed_ldi();
-                } while (testFlag(FLAG_PV));
 
-                unsetFlag(FLAG_PV);
+                doLDI();
+
+                if (getBC() != 0) {
+                    PC = (PC - 2 & 0xFFFF);
+                }
 
                 break;
             case CPI:
-                ed_cpi();
+                doCPI();
                 break;
             case CPIR:
-                do {
-                    ed_cpi();
-                } while (getBC() != 0 && !testFlag(FLAG_Z));
 
-                unsetFlag(FLAG_PV);
+                doCPI();
+
+                if (getBC() != 0 && !testFlag(FLAG_Z)) {
+                    PC = (PC - 2 & 0xFFFF);
+                }
 
                 break;
+            case LDD:
+                doLDD();
+                break;
             case LDDR:
-                int lddrCount = 0;
-                do {
-                    lddrCount++;
-                    dataBus = mem.peek(getHL());
-                    mem.poke(getDE(), dataBus);
-                    setDE(getDE() - 1);
-                    setHL(getHL() - 1);
-                    setBC(getBC() - 1);
+                doLDD();
 
-                } while (getBC() != 0);
-                System.out.println("LDDR count:" + lddrCount);
+                if (getBC() != 0 && !testFlag(FLAG_Z)) {
+                    PC = (PC - 2 & 0xFFFF);
+                }
                 break;
             case IM_0:
                 setInterruptMode(0);
@@ -1256,7 +1232,23 @@ public class CPU {
         }
     }
 
-    private void ed_ldi() {
+    public int doIn(int val) {
+
+        int wrk = mem.getPort(val & 0xffff);
+
+        handle53Flag(dataBus);
+        unsetFlag(FLAG_H);
+        unsetFlag(FLAG_N);
+        setFlag(FLAG_Z, dataBus == 0);
+        handleSignFlag(dataBus);
+        handleZeroFlag(dataBus);
+        handleParityFlag(dataBus);
+
+        return wrk;
+    }
+
+
+    private void doLDI() {
         // Transfers a byte of data from the memory location pointed to by HL to the memory
         // location pointed to by DE. Then HL and DE are incremented and BC is decremented.
         // p/v is reset if BC becomes zero and set otherwise.
@@ -1266,8 +1258,7 @@ public class CPU {
         incDE();
         decBC();
 
-        if (getBC() == 0) unsetFlag(FLAG_PV);
-        else setFlag(FLAG_PV);
+        setFlag(FLAG_PV, getBC() != 0);
 
         unsetFlag(FLAG_N);
         unsetFlag(FLAG_H);
@@ -1276,30 +1267,13 @@ public class CPU {
     }
 
     private void compare(int value) {
-//        int wrk = A - value;
-//
-//        handleZeroFlag(wrk & 0xff);
-//        handleSignFlag(wrk & 0xff);
-//        unsetFlag(FLAG_PV);
-//
-//        setFlag(FLAG_N);
-//        if (A < value)
-//            setFlag(FLAG_C);
-//        else
-//            unsetFlag(FLAG_C);
-//
-//        if ((A & 0xF) < (value & 0xF))
-//            setFlag(FLAG_H);
-//        else
-//            unsetFlag(FLAG_H);
-//
-//        handle53Flag(wrk);
+
         int tmp = A;
         doSub(value);
         A = tmp;
     }
 
-    private void ed_cpi() {
+    private void doCPI() {
         // Compares the value of the memory location pointed to by HL with A.
         // Then HL is incremented and BC is decremented.
         // p/v is reset if BC becomes zero and set otherwise.
@@ -1310,6 +1284,26 @@ public class CPU {
         setFlag(FLAG_C, tempCarry);
 
         incHL();
+        decBC();
+
+        setFlag(FLAG_PV, getBC() != 0);
+
+    }
+
+    private void doLDD() {
+        // Transfers a byte of data from the memory location pointed
+        // to by HL to the memory location pointed to by DE.
+        // Then HL, DE, and BC are decremented.
+        // p/v is reset if BC becomes zero and set otherwise.
+        int data = mem.peek(getHL());
+        mem.poke(getDE(), data);
+
+        boolean tempCarry = testFlag(FLAG_C);
+        compare(data);
+        setFlag(FLAG_C, tempCarry);
+
+        decHL();
+        decDE();
         decBC();
 
         setFlag(FLAG_PV, getBC() != 0);
@@ -1366,14 +1360,15 @@ public class CPU {
 
         if (carryOut == 1) setFlag(FLAG_C);
         else unsetFlag(FLAG_C);
+        setFlag(FLAG_C, ((val & 0x80) > 0));
 
-        int wrk = ((val << 1) + carryOut) & 0xFF;
+        int wrk = ((val << 1) | carryOut) & 0xFF;
 
         unsetFlag(FLAG_N);
         unsetFlag(FLAG_H);
-        handleZeroFlag(wrk);
-        handleSignFlag(wrk);
-        handleParityFlag(wrk);
+        handleZeroFlag(wrk & 0xff);
+        handleSignFlag(wrk & 0xff);
+        handleParityFlag(wrk & 0xff);
         handle53Flag(wrk);
 
         return wrk;
@@ -1385,13 +1380,13 @@ public class CPU {
         if (carryOut == 1) setFlag(FLAG_C);
         else unsetFlag(FLAG_C);
 
-        int wrk = (val >> 1) + (carryOut << 7);
+        int wrk = ((val >> 1) & 0x7F) | (carryOut << 7);
 
         unsetFlag(FLAG_N);
         unsetFlag(FLAG_H);
-        handleZeroFlag(wrk);
-        handleSignFlag(wrk);
-        handleParityFlag(wrk);
+        handleZeroFlag(wrk & 0xFF);
+        handleSignFlag(wrk & 0xFF);
+        handleParityFlag(wrk & 0xFF);
         handle53Flag(wrk);
 
         return wrk;
@@ -1401,20 +1396,19 @@ public class CPU {
         int wrk = val << 1;
         if (testFlag(FLAG_C))
             wrk |= 1;
-        if (wrk > 0xff)
-            setFlag(FLAG_C);
-        else
-            unsetFlag(FLAG_C);
+
+
+        setFlag(FLAG_C, ((val & 0x80) >> 7) > 0);
+
         wrk = wrk & 0xff;
 
-        unsetFlag(FLAG_Z);
         unsetFlag(FLAG_N);
         unsetFlag(FLAG_H);
 
         handleZeroFlag(wrk);
         handle53Flag(wrk);
         handleParityFlag(wrk);
-        handleSignFlag(wrk);
+        handleSignFlag(wrk & 0xFF);
 
         return wrk;
     }
@@ -1423,7 +1417,7 @@ public class CPU {
         int carryIn = testFlag(FLAG_C) ? 1 : 0;
         int carryOut = ((val & 0x01) > 0) ? 1 : 0;
 
-        int wrk = (val >> 1) + (carryIn << 7);
+        int wrk = (val >> 1) | (carryIn << 7);
 
         if (carryOut == 1)
             setFlag(FLAG_C);
@@ -1432,7 +1426,7 @@ public class CPU {
 
         unsetFlag(FLAG_N);
         unsetFlag(FLAG_H);
-        unsetFlag(FLAG_Z);
+
         handleZeroFlag(wrk);
         handle53Flag(wrk);
         handleParityFlag(wrk);
@@ -1502,6 +1496,7 @@ public class CPU {
     }
 
     public void testBit(int val, int bit) {
+
         if ((val & (1 << bit)) == 0) {
             setFlag(FLAG_Z);
             setFlag(FLAG_PV);
@@ -1512,9 +1507,8 @@ public class CPU {
 
         unsetFlag(FLAG_N);
         setFlag(FLAG_H);
+        setFlag(FLAG_S, (bit == 7 && !testFlag(FLAG_Z)));
 
-        if (bit == 7 && !testFlag(FLAG_Z)) setFlag(FLAG_S);
-        else unsetFlag(FLAG_S);
 
         //System.out.println("BIT value was " + Utils.toHex2(val));
     }

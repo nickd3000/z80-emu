@@ -59,15 +59,14 @@ public class TestMicrocode {
 
     // createFDCBInstructions(0xC0, MicroOp.SET0, "SET 0,(iy+d),@");
     @Test
-    public void testFDCB_0xC0() {
-        int instruction = 0xC0;
+    public void testFDCB_0xC6() {
+        int instruction = 0xC6;
         String name = codeTableManager.codeTableFDCB.getInstructionName(instruction);
         MicroOp[] codes = codeTableManager.codeTableFDCB.getInstructionCode(instruction);
         System.out.println(name);
-        Assert.assertEquals("SET 0,(iy+d),B", name);
+        Assert.assertEquals("SET 0,(iy+d),", name);
         Assert.assertEquals(MicroOp.FETCH_pIY_D, codes[0]);
         Assert.assertEquals(MicroOp.SET0, codes[1]);
-        Assert.assertEquals(MicroOp.STORE_B, codes[2]);
-        Assert.assertEquals(MicroOp.STORE_pIY_D, codes[3]);
+        Assert.assertEquals(MicroOp.STORE_pIY_D, codes[2]);
     }
 }

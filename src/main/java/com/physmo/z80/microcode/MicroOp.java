@@ -131,6 +131,7 @@ public enum MicroOp {
     OR,
     XOR,
     AND,
+    NEG,
 
     SBC_HL, // 16 bit version applied to HL
     ADC_HL,
@@ -138,7 +139,7 @@ public enum MicroOp {
     // RETURNS
     RET, RETI, RETZ, RETNZ,
     RETNC, RETC,
-    RET_PO, RET_P,
+    RET_PO, RET_P, RET_M, RET_PE,
 
     // STACK
     PUSHW,

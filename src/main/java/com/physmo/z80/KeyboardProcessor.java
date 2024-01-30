@@ -24,7 +24,7 @@ public class KeyboardProcessor {
     }
 
     public int processRow(int[] rowKeys, int[] keyState) {
-        int result = 0xbf; // 0x1f;
+        int result = 0xbf; //0xff;//0x1f;//
         for (int i = 0; i < 5; i++) {
             if (keyState[rowKeys[i]] > 0) {
                 result = cpu.resetBit(result, i);

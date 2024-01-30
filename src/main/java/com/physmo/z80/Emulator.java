@@ -49,7 +49,7 @@ public class Emulator {
 //        fileReaderZ80.readFile(romPath + "FindersKeepers.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"DONKKONG.Z80", cpu);
 //        fileReaderZ80.readFile(romPath+"MAGICCAS.Z80", cpu); // bad
-//        fileReaderZ80.readFile(romPath+"JETSETW1.Z80", cpu);
+        fileReaderZ80.readFile(romPath + "JETSETW1.Z80", cpu);
 
 //        fileReaderZ80.readFile(romPath+"1942.z80", cpu); // all fail to load
 //        fileReaderZ80.readFile(romPath+"ActionBiker.z80", cpu); // all fail to load
@@ -61,7 +61,7 @@ public class Emulator {
 //        fileReaderZ80.readFile(romPath+"BombJack.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"ChuckieEgg.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"HungryHorace.z80", cpu);
-        fileReaderZ80.readFile(romPath + "ManicMiner.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"ManicMiner.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"SabreWulf.z80", cpu);
     }
 
@@ -95,7 +95,7 @@ public class Emulator {
 
 //        breakpoints.add(0x0DD9); // CL-SET
 
-//        breakpoints.add(0x8DC9); // misc
+//        breakpoints.add(0x11E5); // misc
 
 //        breakpoints.add(0x028E); // KEY-SCAN
 
@@ -103,9 +103,21 @@ public class Emulator {
 
 //        breakpoints.add(0x029D); // KEY DETECTED
 
+//          breakpoints.add(0x03D6); // sound?
+
+//                  breakpoints.add(0x03B5); // BEEPER
+
         // Jet Set Willy
 //        breakpoints.add(0x8912); // 8912: Initialise the current room
 //        breakpoints.add(0x8D33); // 8D33: Draw the current room to the screen buffer at 7000
+//        breakpoints.add(0x88FC); // 88FC: Start the game
+//        breakpoints.add(0x8912); // 8912: Initialise the current room
+//                breakpoints.add(0x89AD); // 89AD: Main loop (1)
+//        breakpoints.add(0x8F1A); // 8F1A read jump
+
+        // Finders keepers
+//        breakpoints.add(0x9AF4);
+//        breakpoints.add(0x9296);
     }
 
     public void interrupt() {
@@ -134,7 +146,7 @@ public class Emulator {
 
         boolean breakPointHit = false;
 
-        int iterations = 3600000 * 55;// 639031 + 10;
+        int iterations = 3600000 * 128;// 639031 + 10;
 
         for (int i = 0; i < iterations; i++) {
             if (i % 100 == 0) {
@@ -145,14 +157,14 @@ public class Emulator {
             if (i % 2000 == 0) interrupt();
 
             if (testBreakpoint(cpu.PC) && !breakPointHit) {
-                iterations = i + 35;
+                iterations = i + 128;
                 breakPointHit = true;
                 System.out.println("************* Breakpoint ****************");
             }
 
             cpu.tick(1);
 
-            if (showInstructions) System.out.println(cpu.dump());
+            if (showInstructions /*&& i>600000*/) System.out.println(cpu.dump());
 
             if ((i & 5000) == 0) keyboardProcessor.handleInput();
 
