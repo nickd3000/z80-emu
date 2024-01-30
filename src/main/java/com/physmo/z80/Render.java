@@ -116,6 +116,16 @@ public class Render {
 
     }
 
+    public void renderKeyboard(BasicDisplay bd, CPU cpu) {
+
+        for (int i = 0; i < 8; i++) {
+            String str = Utils.toBinary(cpu.mem.getKeyRowState(i));
+            bd.drawText(str, 20, (20 * i) + 30);
+        }
+        String str = Utils.toBinary(cpu.mem.getPort(0xE7FE));
+        bd.drawText(str, 20, (20 * 10) + 30);
+    }
+
 }
 
 

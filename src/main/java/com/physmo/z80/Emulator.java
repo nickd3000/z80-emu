@@ -113,7 +113,7 @@ public class Emulator {
 //        breakpoints.add(0x88FC); // 88FC: Start the game
 //        breakpoints.add(0x8912); // 8912: Initialise the current room
 //                breakpoints.add(0x89AD); // 89AD: Main loop (1)
-//        breakpoints.add(0x8F1A); // 8F1A read jump
+//        breakpoints.add(0x8F6D); // 8F6D read jump
 
         // Finders keepers
 //        breakpoints.add(0x9AF4);
@@ -147,6 +147,7 @@ public class Emulator {
         boolean breakPointHit = false;
 
         int iterations = 3600000 * 128;// 639031 + 10;
+        keyboardProcessor.handleInput();
 
         for (int i = 0; i < iterations; i++) {
             if (i % 100 == 0) {

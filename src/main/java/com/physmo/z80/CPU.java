@@ -881,10 +881,14 @@ public class CPU {
                 wrk = 0;
                 break;
             case IN: // Used for IN A, (n)
+                lastData += "port(" + Utils.toHex4(((A & 0xff) << 8) | (dataBus & 0xff)) + ")";
+
                 dataBus = doIn(((A & 0xff) << 8) | (dataBus & 0xff));
+
                 System.out.println(this.lastDecompile);
                 break;
             case FETCH_PORT_C:
+
                 dataBus = doIn(getBC() & 0xFFFF);
                 break;
             case DAA: // Decimal Adjust Accumulator to get a correct BCD representation after an arithmetic instruction

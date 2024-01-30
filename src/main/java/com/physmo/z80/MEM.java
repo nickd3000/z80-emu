@@ -5,12 +5,15 @@ public class MEM {
     public int[] RAM = new int[0x10000]; // 64k
     public int[] PORTS = new int[0x10000]; // 64k
     CPU cpu = null;
+    int count = 0;
+    int[] keyRowStates = new int[]{0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD};
 
     public MEM(CPU cpu) {
         this.cpu = cpu;
+        for (int i = 0; i < 0xffff; i++) {
+            PORTS[i] = 0x00;
+        }
     }
-
-    int count = 0;
 
     public void poke(int addr, int val) {
         if (addr == 0xa151) {
@@ -42,7 +45,6 @@ public class MEM {
         return RAM[addr];
     }
 
-
     public int peekWord(int addr) {
         int b1 = RAM[addr];
         int b2 = RAM[addr + 1];
@@ -58,6 +60,31 @@ public class MEM {
     }
 
     public int getPort(int portAddress) {
+        if ((portAddress & 0xFF) == 0xFE) {
+            return getKeyboardPort(portAddress);
+        }
         return PORTS[portAddress & 0xFFFF] & 0xFF;
+    }
+
+    public int getKeyboardPort(int portAddress) {
+        int highByte = (portAddress & 0xFF00) >> 8;
+        int val = 0xFF;
+
+        for (int i = 0; i < 8; i++) {
+            if ((highByte & (1 << i)) == 0) {
+                val &= keyRowStates[i];
+            }
+
+        }
+        return val;
+    }
+
+
+    public void setKeyRowState(int row, int val) {
+        keyRowStates[row] = val;
+    }
+
+    public int getKeyRowState(int row) {
+        return keyRowStates[row];
     }
 }

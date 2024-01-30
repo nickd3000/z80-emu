@@ -24,7 +24,7 @@ public class KeyboardProcessor {
     }
 
     public int processRow(int[] rowKeys, int[] keyState) {
-        int result = 0xbf; //0xff;//0x1f;//
+        int result = 0xff;// 0xbf; //0xff;//0x1f;//
         for (int i = 0; i < 5; i++) {
             if (keyState[rowKeys[i]] > 0) {
                 result = cpu.resetBit(result, i);
@@ -39,16 +39,23 @@ public class KeyboardProcessor {
 
         if (keyState[KeyEvent.VK_CONTROL] > 0) return;
 
-        cpu.mem.setPort(0xFEFE, processRow(KeysFEFE, keyState));
-        cpu.mem.setPort(0xFDFE, processRow(KeysFDFE, keyState));
-        cpu.mem.setPort(0xFBFE, processRow(KeysFBFE, keyState));
-        cpu.mem.setPort(0xF7FE, processRow(KeysF7FE, keyState));
-        cpu.mem.setPort(0xEFFE, processRow(KeysEFFE, keyState));
-        cpu.mem.setPort(0xDFFE, processRow(KeysDFFE, keyState));
-        cpu.mem.setPort(0xBFFE, processRow(KeysBFFE, keyState));
-        cpu.mem.setPort(0x7FFE, processRow(Keys7FFE, keyState));
+//        cpu.mem.setPort(0xFEFE, processRow(KeysFEFE, keyState));
+//        cpu.mem.setPort(0xFDFE, processRow(KeysFDFE, keyState));
+//        cpu.mem.setPort(0xFBFE, processRow(KeysFBFE, keyState));
+//        cpu.mem.setPort(0xF7FE, processRow(KeysF7FE, keyState));
+//        cpu.mem.setPort(0xEFFE, processRow(KeysEFFE, keyState));
+//        cpu.mem.setPort(0xDFFE, processRow(KeysDFFE, keyState));
+//        cpu.mem.setPort(0xBFFE, processRow(KeysBFFE, keyState));
+//        cpu.mem.setPort(0x7FFE, processRow(Keys7FFE, keyState));
 
-
+        cpu.mem.setKeyRowState(0, processRow(KeysFEFE, keyState)); // 0
+        cpu.mem.setKeyRowState(1, processRow(KeysFDFE, keyState)); // 1
+        cpu.mem.setKeyRowState(2, processRow(KeysFBFE, keyState)); // 2
+        cpu.mem.setKeyRowState(3, processRow(KeysF7FE, keyState)); // 3
+        cpu.mem.setKeyRowState(4, processRow(KeysEFFE, keyState)); // 4
+        cpu.mem.setKeyRowState(5, processRow(KeysDFFE, keyState)); // 5
+        cpu.mem.setKeyRowState(6, processRow(KeysBFFE, keyState)); // 6
+        cpu.mem.setKeyRowState(7, processRow(Keys7FFE, keyState)); // 7
     }
 
 }
