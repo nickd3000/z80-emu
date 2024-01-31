@@ -39,15 +39,6 @@ public class KeyboardProcessor {
 
         if (keyState[KeyEvent.VK_CONTROL] > 0) return;
 
-//        cpu.mem.setPort(0xFEFE, processRow(KeysFEFE, keyState));
-//        cpu.mem.setPort(0xFDFE, processRow(KeysFDFE, keyState));
-//        cpu.mem.setPort(0xFBFE, processRow(KeysFBFE, keyState));
-//        cpu.mem.setPort(0xF7FE, processRow(KeysF7FE, keyState));
-//        cpu.mem.setPort(0xEFFE, processRow(KeysEFFE, keyState));
-//        cpu.mem.setPort(0xDFFE, processRow(KeysDFFE, keyState));
-//        cpu.mem.setPort(0xBFFE, processRow(KeysBFFE, keyState));
-//        cpu.mem.setPort(0x7FFE, processRow(Keys7FFE, keyState));
-
         cpu.mem.setKeyRowState(0, processRow(KeysFEFE, keyState)); // 0
         cpu.mem.setKeyRowState(1, processRow(KeysFDFE, keyState)); // 1
         cpu.mem.setKeyRowState(2, processRow(KeysFBFE, keyState)); // 2

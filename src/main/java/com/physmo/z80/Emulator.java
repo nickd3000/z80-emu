@@ -49,7 +49,7 @@ public class Emulator {
 //        fileReaderZ80.readFile(romPath + "FindersKeepers.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"DONKKONG.Z80", cpu);
 //        fileReaderZ80.readFile(romPath+"MAGICCAS.Z80", cpu); // bad
-        fileReaderZ80.readFile(romPath + "JETSETW1.Z80", cpu);
+//        fileReaderZ80.readFile(romPath + "JETSETW1.Z80", cpu);
 
 //        fileReaderZ80.readFile(romPath+"1942.z80", cpu); // all fail to load
 //        fileReaderZ80.readFile(romPath+"ActionBiker.z80", cpu); // all fail to load
@@ -63,6 +63,21 @@ public class Emulator {
 //        fileReaderZ80.readFile(romPath+"HungryHorace.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"ManicMiner.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"SabreWulf.z80", cpu);
+
+//        fileReaderZ80.readFile(romPath+"FantasyWorldDizzy.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"Myth.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"RainbowIslands.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"RType.z80", cpu); // bad version?
+
+//        fileReaderZ80.readFile(romPath+"HeadOverHeels.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"JacktheNipper.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"Zorro.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"Zzzz.z80", cpu);
+
+//        fileReaderZ80.readFile(romPath+"Galaxian.z80", cpu);
+//          fileReaderZ80.readFile(romPath+"GNG.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"Silkworm.z80", cpu);
+
     }
 
     public void initBreakpoints() {

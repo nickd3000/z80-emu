@@ -66,6 +66,7 @@ public class MEM {
         return PORTS[portAddress & 0xFFFF] & 0xFF;
     }
 
+    // Keyboard ports are more complicated that expected.
     public int getKeyboardPort(int portAddress) {
         int highByte = (portAddress & 0xFF00) >> 8;
         int val = 0xFF;
