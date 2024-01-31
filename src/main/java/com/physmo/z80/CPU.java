@@ -265,6 +265,18 @@ public class CPU {
             case FETCH_IX:
                 dataBus = IX;
                 break;
+            case FETCH_IX_L:
+                dataBus = IX & 0xFF;
+                break;
+            case FETCH_IY_L:
+                dataBus = IY & 0xFF;
+                break;
+            case FETCH_IX_H:
+                dataBus = (IX >> 8) & 0xFF;
+                break;
+            case FETCH_IY_H:
+                dataBus = (IY >> 8) & 0xFF;
+                break;
             case FETCH_8:
                 dataBus = getNextByte();
                 lastData = "  (" + Utils.toHex2(dataBus) + ")";
@@ -826,8 +838,7 @@ public class CPU {
                 PC = addrBus;
                 break;
             case RET:
-                wrk = popW();
-                PC = wrk;
+                PC = popW();
                 break;
             case RETI:
                 wrk = popW();
@@ -878,7 +889,6 @@ public class CPU {
                 break;
             case OUT:
                 // TODO the port stuff needs to be implemented
-                wrk = 0;
                 break;
             case IN: // Used for IN A, (n)
                 lastData += "port(" + Utils.toHex4(((A & 0xff) << 8) | (dataBus & 0xff)) + ")";
@@ -940,7 +950,7 @@ public class CPU {
                 } else {
                     setFlag(FLAG_C);
                 }
-
+                break;
             case PUSHW:
                 pushW(dataBus);
                 break;
@@ -951,44 +961,28 @@ public class CPU {
                 call(addrBus);
                 break;
             case CALLNZ:
-                if (!testFlag(FLAG_Z)) {
-                    call(addrBus);
-                }
+                call(addrBus, !testFlag(FLAG_Z));
                 break;
             case CALLZ:
-                if (testFlag(FLAG_Z)) {
-                    call(addrBus);
-                }
+                call(addrBus, testFlag(FLAG_Z));
                 break;
             case CALLC:
-                if (testFlag(FLAG_C)) {
-                    call(addrBus);
-                }
+                call(addrBus, testFlag(FLAG_C));
                 break;
             case CALLNC:
-                if (!testFlag(FLAG_C)) {
-                    call(addrBus);
-                }
+                call(addrBus, !testFlag(FLAG_C));
                 break;
             case CALLPO:
-                if (!testFlag(FLAG_PV)) {
-                    call(addrBus);
-                }
+                call(addrBus, !testFlag(FLAG_PV));
                 break;
             case CALLP:
-                if (!testFlag(FLAG_S)) {
-                    call(addrBus);
-                }
+                call(addrBus, !testFlag(FLAG_S));
                 break;
             case CALLM:
-                if (testFlag(FLAG_S)) {
-                    call(addrBus);
-                }
+                call(addrBus, testFlag(FLAG_S));
                 break;
             case CALLPE:
-                if (testFlag(FLAG_PV)) {
-                    call(addrBus);
-                }
+                call(addrBus, testFlag(FLAG_PV));
                 break;
 
             case RST_18H:
@@ -1091,16 +1085,7 @@ public class CPU {
                 testBit(dataBus, 7);
                 break;
 
-            case LDZPGA: // load zero page from A
-                mem.poke(0xff00 + (dataBus & 0xff), A & 0xff);
-                // mem.RAM[0xff00+(ac1.val&0xff)] = A&0xff;
-                break;
-            case FETCH_ZPG: // load zero page from A
-                dataBus = mem.peek(0xff00 + (dataBus & 0xff));
-                // mem.RAM[0xff00+(ac1.val&0xff)] = A&0xff;
-                break;
             case ADDSPNN:
-
                 wrk = SP + convertSignedByte(dataBus & 0xff);
 
                 if (((SP ^ convertSignedByte(dataBus & 0xff) ^ wrk) & 0x10) > 0)
@@ -1189,13 +1174,10 @@ public class CPU {
                 doCPI();
                 break;
             case CPIR:
-
                 doCPI();
-
                 if (getBC() != 0 && !testFlag(FLAG_Z)) {
                     PC = (PC - 2 & 0xFFFF);
                 }
-
                 break;
             case LDD:
                 doLDD();
@@ -1216,21 +1198,7 @@ public class CPU {
             case IM_2:
                 setInterruptMode(2);
                 break;
-            case PREFIX_CB:
-                //CPUPrefixInstructions.processPrefixCommand(this, dataBus);
-                break;
-            case PREFIX_ED: {
-                int subInstruction = mem.peek(PC++);
-                MicroOp[] ops = codeTableManager.codeTableED.getInstructionCode(subInstruction);
 
-                if (ops.length > 0 && ops[0] != MicroOp.TODO) {
-                    //printNewOpUse(currentInstruction);
-                    for (MicroOp _op : ops) {
-                        doMicroOp(_op);
-                    }
-                }
-            }
-            break;
             default:
                 System.out.println("Unsupported micro op: " + op.name());
         }
@@ -1732,6 +1700,13 @@ public class CPU {
     public void call(int addr) {
         pushW(PC);
         PC = addr;
+    }
+
+    public void call(int addr, boolean condition) {
+        if (condition) {
+            pushW(PC);
+            PC = addr;
+        }
     }
 
     public void ret() {

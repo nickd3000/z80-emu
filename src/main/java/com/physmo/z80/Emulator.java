@@ -46,6 +46,10 @@ public class Emulator {
 
     public void loadZ80() {
         FileReaderZ80 fileReaderZ80 = new FileReaderZ80();
+
+//        fileReaderZ80.readFile(romPath+"Zzzz.z80", cpu);
+
+
 //        fileReaderZ80.readFile(romPath + "FindersKeepers.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"DONKKONG.Z80", cpu);
 //        fileReaderZ80.readFile(romPath+"MAGICCAS.Z80", cpu); // bad
@@ -72,7 +76,7 @@ public class Emulator {
 //        fileReaderZ80.readFile(romPath+"HeadOverHeels.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"JacktheNipper.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"Zorro.z80", cpu);
-//        fileReaderZ80.readFile(romPath+"Zzzz.z80", cpu);
+
 
 //        fileReaderZ80.readFile(romPath+"Galaxian.z80", cpu);
 //          fileReaderZ80.readFile(romPath+"GNG.z80", cpu);
@@ -121,6 +125,9 @@ public class Emulator {
 //          breakpoints.add(0x03D6); // sound?
 
 //                  breakpoints.add(0x03B5); // BEEPER
+
+//        breakpoints.add(0x111D); // ED-COPY
+
 
         // Jet Set Willy
 //        breakpoints.add(0x8912); // 8912: Initialise the current room

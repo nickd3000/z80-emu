@@ -16,11 +16,6 @@ public class MEM {
     }
 
     public void poke(int addr, int val) {
-        if (addr == 0xa151) {
-            count++;
-            System.out.println("PC=" + Utils.toHex4(cpu.PC));
-            if (count == 20) throw new RuntimeException();
-        }
 
         if (addr > 0xffff) {
             System.out.println("out of bounds");
