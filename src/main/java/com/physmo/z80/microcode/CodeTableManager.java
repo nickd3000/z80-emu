@@ -9,6 +9,7 @@ public class CodeTableManager {
     public CodeTable codeTableFD; // IY Instructions (FD)
     public CodeTable codeTableDD; // IX Instructions (DD)
     public CodeTable codeTableFDCB; // IY Bit Instructions (FDCB)
+    public CodeTable codeTableDDCB; // IX Bit Instructions (DDCB)
     public CodeTable codeTableCB; // Bit instructions
 
     public CodeTableManager() {
@@ -17,14 +18,16 @@ public class CodeTableManager {
         codeTableFD = new CodeTable("FD");
         codeTableDD = new CodeTable("DD");
         codeTableFDCB = new CodeTable("FDCB");
+        codeTableDDCB = new CodeTable("DDCB");
         codeTableCB = new CodeTable("CB");
 
         initCodeTableMain();
         initCodeTableED();
         initCodeTableFD(); // IY
-        initCodeTableFDCB();
+        initCodeTableFDCB(); // IY Bit
         initCodeTableCB();
         initCodeTableDD(); // IX
+        initCodeTableDDCB(); // IX
     }
 
     List<MicroOp> cbFetch = List.of(MicroOp.FETCH_B, MicroOp.FETCH_C, MicroOp.FETCH_D, MicroOp.FETCH_E, MicroOp.FETCH_H, MicroOp.FETCH_L, MicroOp.FETCH_pHL, MicroOp.FETCH_A);
@@ -39,8 +42,16 @@ public class CodeTableManager {
         }
     }
 
+    public void createCBInstructionsBit(int startId, MicroOp operation, String name) {
+        for (int i = 0; i < 8; i++) {
+            String newName = name.replace("@", cbNames.get(i));
+            codeTableCB.define(startId + i, newName, cbFetch.get(i), operation);
+        }
+    }
+
     //List<MicroOp> fdcbFetch = List.of(MicroOp.FETCH_B, MicroOp.FETCH_C, MicroOp.FETCH_D, MicroOp.FETCH_E, MicroOp.FETCH_H, MicroOp.FETCH_L, MicroOp.FETCH_pHL, MicroOp.FETCH_A);
     List<MicroOp> fdcbStore = List.of(MicroOp.STORE_B, MicroOp.STORE_C, MicroOp.STORE_D, MicroOp.STORE_E, MicroOp.STORE_H, MicroOp.STORE_L, MicroOp.STORE_pIY_D, MicroOp.STORE_A);
+    List<MicroOp> ddcbStore = List.of(MicroOp.STORE_B, MicroOp.STORE_C, MicroOp.STORE_D, MicroOp.STORE_E, MicroOp.STORE_H, MicroOp.STORE_L, MicroOp.STORE_pIX_D, MicroOp.STORE_A);
     List<String> fdcbNames = List.of("B", "C", "D", "E", "H", "L", "", "A");
 
     // Addressing wildcard is @
@@ -58,6 +69,21 @@ public class CodeTableManager {
         }
     }
 
+    // Addressing wildcard is @
+    public void createDDCBInstructions(int startId, MicroOp operation, String name) {
+        for (int i = 0; i < 8; i++) {
+            String newName = name.replace("@", fdcbNames.get(i));
+            codeTableDDCB.define(startId + i, newName, MicroOp.FETCH_pIX_D, operation, ddcbStore.get(i));//, MicroOp.STORE_pIY_D);
+        }
+    }
+
+    // Variation with no store for BIT commands
+    public void createDDCBInstructionsBit(int startId, MicroOp operation, String name) {
+        for (int i = 0; i < 8; i++) {
+            codeTableDDCB.define(startId + i, name, MicroOp.FETCH_pIX_D, operation);
+        }
+    }
+
     public void initCodeTableCB() {
 
         createCBInstructions(0x00, MicroOp.RLC, "rlc @");
@@ -68,14 +94,14 @@ public class CodeTableManager {
         createCBInstructions(0x28, MicroOp.SRA, "SRA @");
         createCBInstructions(0x30, MicroOp.SLL, "SLL @");
         createCBInstructions(0x38, MicroOp.SRL, "SRL @");
-        createCBInstructions(0x40, MicroOp.BIT0, "BIT 0,@");
-        createCBInstructions(0x48, MicroOp.BIT1, "BIT 1,@");
-        createCBInstructions(0x50, MicroOp.BIT2, "BIT 2,@");
-        createCBInstructions(0x58, MicroOp.BIT3, "BIT 3,@");
-        createCBInstructions(0x60, MicroOp.BIT4, "BIT 4,@");
-        createCBInstructions(0x68, MicroOp.BIT5, "BIT 5,@");
-        createCBInstructions(0x70, MicroOp.BIT6, "BIT 6,@");
-        createCBInstructions(0x78, MicroOp.BIT7, "BIT 7,@");
+        createCBInstructionsBit(0x40, MicroOp.BIT0, "BIT 0,@");
+        createCBInstructionsBit(0x48, MicroOp.BIT1, "BIT 1,@");
+        createCBInstructionsBit(0x50, MicroOp.BIT2, "BIT 2,@");
+        createCBInstructionsBit(0x58, MicroOp.BIT3, "BIT 3,@");
+        createCBInstructionsBit(0x60, MicroOp.BIT4, "BIT 4,@");
+        createCBInstructionsBit(0x68, MicroOp.BIT5, "BIT 5,@");
+        createCBInstructionsBit(0x70, MicroOp.BIT6, "BIT 6,@");
+        createCBInstructionsBit(0x78, MicroOp.BIT7, "BIT 7,@");
         createCBInstructions(0x80, MicroOp.RES0, "RES 0,@");
         createCBInstructions(0x88, MicroOp.RES1, "RES 1,@");
         createCBInstructions(0x90, MicroOp.RES2, "RES 2,@");
@@ -96,6 +122,7 @@ public class CodeTableManager {
 
     }
 
+    // IY Bit instructions
     public void initCodeTableFDCB() {
         createFDCBInstructions(0x00, MicroOp.RLC, "RLC (iy+d),@");
         createFDCBInstructions(0x08, MicroOp.RRC, "RRC (iy+d),@");
@@ -138,6 +165,46 @@ public class CodeTableManager {
 
     }
 
+    // IX Bit instructions
+    public void initCodeTableDDCB() {
+        createDDCBInstructions(0x00, MicroOp.RLC, "RLC (ix+d),@");
+        createDDCBInstructions(0x08, MicroOp.RRC, "RRC (ix+d),@");
+        createDDCBInstructions(0x10, MicroOp.RL, "RL (ix+d),@");
+        createDDCBInstructions(0x18, MicroOp.RR, "RR (ix+d),@");
+        createDDCBInstructions(0x20, MicroOp.SLA, "SLA (ix+d),@");
+        createDDCBInstructions(0x28, MicroOp.SRA, "SRA (ix+d),@");
+        createDDCBInstructions(0x30, MicroOp.SLL, "SLL (ix+d),@");
+        createDDCBInstructions(0x38, MicroOp.SRL, "SRL (ix+d),@");
+
+        createDDCBInstructionsBit(0x40, MicroOp.BIT0, "BIT 0,(ix+d)");
+        createDDCBInstructionsBit(0x48, MicroOp.BIT1, "BIT 1,(ix+d)");
+        createDDCBInstructionsBit(0x50, MicroOp.BIT2, "BIT 2,(ix+d)");
+        createDDCBInstructionsBit(0x58, MicroOp.BIT3, "BIT 3,(ix+d)");
+        createDDCBInstructionsBit(0x60, MicroOp.BIT4, "BIT 4,(ix+d)");
+        createDDCBInstructionsBit(0x68, MicroOp.BIT5, "BIT 5,(ix+d)");
+        createDDCBInstructionsBit(0x70, MicroOp.BIT6, "BIT 6,(ix+d)");
+        createDDCBInstructionsBit(0x78, MicroOp.BIT7, "BIT 7,(ix+d)");
+
+        createDDCBInstructions(0x80, MicroOp.RES0, "RES 0,(ix+d),@");
+        createDDCBInstructions(0x88, MicroOp.RES1, "RES 1,(ix+d),@");
+        createDDCBInstructions(0x90, MicroOp.RES2, "RES 2,(ix+d),@");
+        createDDCBInstructions(0x98, MicroOp.RES3, "RES 3,(ix+d),@");
+        createDDCBInstructions(0xA0, MicroOp.RES4, "RES 4,(ix+d),@");
+        createDDCBInstructions(0xA8, MicroOp.RES5, "RES 5,(ix+d),@");
+        createDDCBInstructions(0xB0, MicroOp.RES6, "RES 6,(ix+d),@");
+        createDDCBInstructions(0xB8, MicroOp.RES7, "RES 7,(ix+d),@");
+
+        createDDCBInstructions(0xC0, MicroOp.SET0, "SET 0,(ix+d),@");
+        createDDCBInstructions(0xC8, MicroOp.SET1, "SET 1,(ix+d),@");
+        createDDCBInstructions(0xD0, MicroOp.SET2, "SET 2,(ix+d),@");
+        createDDCBInstructions(0xD8, MicroOp.SET3, "SET 3,(ix+d),@");
+        createDDCBInstructions(0xE0, MicroOp.SET4, "SET 4,(ix+d),@");
+        createDDCBInstructions(0xE8, MicroOp.SET5, "SET 5,(ix+d),@");
+        createDDCBInstructions(0xF0, MicroOp.SET6, "SET 6,(ix+d),@");
+        createDDCBInstructions(0xF8, MicroOp.SET7, "SET 7,(ix+d),@");
+
+    }
+
     // IY Instructions (FD)
     public void initCodeTableFD() {
 
@@ -146,13 +213,16 @@ public class CodeTableManager {
         codeTableFD.define(0x19, "add iy,de", MicroOp.FETCH_DE, MicroOp.ADD_IY, MicroOp.STORE_IY);
 
         codeTableFD.define(0x21, "ld iy,nn", MicroOp.FETCH_16, MicroOp.STORE_IY);
+        codeTableFD.define(0x22, "ld (nn),iy", MicroOp.FETCH_16_ADDRESS, MicroOp.FETCH_IY, MicroOp.STORE_WORD_AT_ADDRESS);
         codeTableFD.define(0x23, "inc iy", MicroOp.FETCH_IY, MicroOp.INC_16, MicroOp.STORE_IY);
-        codeTableFD.define(0x2A, "ld iy,(nn)", MicroOp.FETCH_16_ADDRESS, MicroOp.FETCH_BYTE_FROM_ADDR, MicroOp.STORE_IY);
+        codeTableFD.define(0x29, "add iy,iy", MicroOp.FETCH_IY, MicroOp.ADD_IY, MicroOp.STORE_IY);
+        codeTableFD.define(0x2A, "ld iy,(nn)", MicroOp.FETCH_16_ADDRESS, MicroOp.FETCH_WORD_FROM_ADDR, MicroOp.STORE_IY);
         codeTableFD.define(0x2B, "dec iy", MicroOp.FETCH_IY, MicroOp.DEC_16, MicroOp.STORE_IY);
+        codeTableFD.define(0x2C, "inc iyl", MicroOp.FETCH_IY_L, MicroOp.INC_8, MicroOp.STORE_IY_L);
+        codeTableFD.define(0x2C, "dec iyl", MicroOp.FETCH_IY_L, MicroOp.DEC_8, MicroOp.STORE_IY_L);
         codeTableFD.define(0x2E, "ld iyl,n", MicroOp.FETCH_8, MicroOp.STORE_IY_L);
         codeTableFD.define(0x34, "inc (iy+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIY_D, MicroOp.INC_8, MicroOp.STORE_pIY_D);
         codeTableFD.define(0x35, "dec (iy+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIY_D, MicroOp.DEC_8, MicroOp.STORE_pIY_D);
-
         codeTableFD.define(0x36, "ld (iy+d),n", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_8, MicroOp.STORE_pIY_D);
 
         codeTableFD.define(0x46, "ld b,(iy+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIY_D, MicroOp.STORE_B);
@@ -160,8 +230,9 @@ public class CodeTableManager {
         codeTableFD.define(0x4E, "ld c,(iy+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIY_D, MicroOp.STORE_C);
         codeTableFD.define(0x56, "ld d,(iy+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIY_D, MicroOp.STORE_D);
         codeTableFD.define(0x5E, "ld e,(iy+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIY_D, MicroOp.STORE_E);
-
+        codeTableFD.define(0x62, "ld iyh,d", MicroOp.FETCH_D, MicroOp.STORE_IY_H);
         codeTableFD.define(0x66, "ld h,(iy+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIY_D, MicroOp.STORE_H);
+        codeTableFD.define(0x6B, "ld iyl,e", MicroOp.FETCH_E, MicroOp.STORE_IY_L);
         codeTableFD.define(0x6E, "ld l,(iy+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIY_D, MicroOp.STORE_L);
         codeTableFD.define(0x6F, "ld iyl,a", MicroOp.FETCH_A, MicroOp.STORE_IY_L);
 
@@ -209,25 +280,29 @@ public class CodeTableManager {
 
 
         codeTableDD.define(0x26, "ld ixh,n", MicroOp.FETCH_8, MicroOp.STORE_IX_H);
-
-        codeTableDD.define(0x2A, "ld ix,(nn)", MicroOp.FETCH_16_ADDRESS, MicroOp.FETCH_BYTE_FROM_ADDR, MicroOp.STORE_IX);
+        codeTableDD.define(0x29, "add ix,ix", MicroOp.FETCH_IX, MicroOp.ADD_IX, MicroOp.STORE_IX);
+        codeTableDD.define(0x2A, "ld ix,(nn)", MicroOp.FETCH_16_ADDRESS, MicroOp.FETCH_WORD_FROM_ADDR, MicroOp.STORE_IX);
         codeTableDD.define(0x2B, "dec ix", MicroOp.FETCH_IX, MicroOp.DEC_16, MicroOp.STORE_IX);
+
         codeTableDD.define(0x34, "inc (ix+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIX_D, MicroOp.INC_8, MicroOp.STORE_pIX_D);
-
-
         codeTableDD.define(0x35, "dec (ix+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIX_D, MicroOp.DEC_8, MicroOp.STORE_pIX_D);
-
-
         codeTableDD.define(0x36, "ld (ix+d),n", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_8, MicroOp.STORE_pIX_D);
+        codeTableDD.define(0x39, "add ix,sp", MicroOp.FETCH_SP, MicroOp.ADD_IX, MicroOp.STORE_IX);
+
         codeTableDD.define(0x46, "ld b,(ix+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIX_D, MicroOp.STORE_B);
         codeTableDD.define(0x4E, "ld c,(ix+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIX_D, MicroOp.STORE_C);
+
         codeTableDD.define(0x56, "ld d,(ix+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIX_D, MicroOp.STORE_D);
         codeTableDD.define(0x5C, "ld e,ixh", MicroOp.FETCH_IX_H, MicroOp.STORE_E);
         codeTableDD.define(0x5E, "ld e,(ix+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIX_D, MicroOp.STORE_E);
+        codeTableDD.define(0x62, "ld ixh,d", MicroOp.FETCH_D, MicroOp.STORE_IX_H);
+        codeTableDD.define(0x67, "ld ixh,a", MicroOp.FETCH_A, MicroOp.STORE_IX_H);
+        codeTableDD.define(0x68, "ld ixl,b", MicroOp.FETCH_B, MicroOp.STORE_IX_L);
         codeTableDD.define(0x6E, "ld l,(ix+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIX_D, MicroOp.STORE_L);
         codeTableDD.define(0x6F, "ld ixl,a", MicroOp.FETCH_A, MicroOp.STORE_IX_L);
 
         codeTableDD.define(0x66, "ld h,(ix+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIX_D, MicroOp.STORE_H);
+        codeTableDD.define(0x6E, "ld h,(ix+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIX_D, MicroOp.STORE_H);
 
         codeTableDD.define(0x70, "ld (ix+d),b", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_B, MicroOp.STORE_pIX_D);
         codeTableDD.define(0x71, "ld (ix+d),c", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_C, MicroOp.STORE_pIX_D);
@@ -237,18 +312,20 @@ public class CodeTableManager {
         codeTableDD.define(0x75, "ld (ix+d),l", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_L, MicroOp.STORE_pIX_D);
         codeTableDD.define(0x77, "ld (ix+d),a", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_A, MicroOp.STORE_pIX_D);
         codeTableDD.define(0x7B, "ld a,e", MicroOp.FETCH_E, MicroOp.STORE_A);
-
         codeTableDD.define(0x7D, "ld a,ixl", MicroOp.FETCH_IX_L, MicroOp.STORE_A);
-
         codeTableDD.define(0x7E, "ld a,(ix+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIX_D, MicroOp.STORE_A);
 
         codeTableDD.define(0x86, "add a,(ix+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIX_D, MicroOp.ADD);
+        codeTableDD.define(0x8E, "adc a,(ix+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIX_D, MicroOp.ADC);
 
         codeTableDD.define(0x96, "sub (ix+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIX_D, MicroOp.SUB);
+        codeTableDD.define(0x9E, "sbc (ix+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIX_D, MicroOp.SBC);
 
         codeTableDD.define(0xA6, "and (ix+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIX_D, MicroOp.AND);
+        codeTableDD.define(0xAE, "XOR (ix+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIX_D, MicroOp.XOR);
 
         codeTableDD.define(0xB6, "OR (ix+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIX_D, MicroOp.OR);
+        codeTableDD.define(0xB6, "CP (ix+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIX_D, MicroOp.CP);
 
 
         codeTableDD.define(0xE1, "pop ix", MicroOp.POPW, MicroOp.STORE_IX);
@@ -258,10 +335,12 @@ public class CodeTableManager {
 
         codeTableDD.define(0xBE, "cp (ix+d)", MicroOp.FETCH_BYTE_TO_DISPLACEMENT, MicroOp.FETCH_pIX_D, MicroOp.CP);
 
-        codeTableDD.define(0xCB, "IX bit", MicroOp.NOP);
+        codeTableDD.define(0xCB, "IX bit", MicroOp.PREFIX_DD_CB);
     }
 
     public void initCodeTableED() {
+        codeTableED.define(0x01, "out0 (n),b", MicroOp.FETCH_8_ADDRESS, MicroOp.FETCH_B, MicroOp.OUT0);
+        codeTableED.define(0x41, "out (c),b", MicroOp.NOP);
         codeTableED.define(0x42, "sbc hl,bc", MicroOp.FETCH_BC, MicroOp.SBC_HL);
         codeTableED.define(0x43, "ld (nn),bc", MicroOp.FETCH_16_ADDRESS, MicroOp.FETCH_BC, MicroOp.STORE_WORD_AT_ADDRESS);
 
@@ -269,20 +348,34 @@ public class CodeTableManager {
 
         codeTableED.define(0x47, "LD i,a", MicroOp.FETCH_A, MicroOp.STORE_I);
 
-
+        codeTableED.define(0x49, "out (c),c", MicroOp.NOP);
+        codeTableED.define(0x4A, "adc hl,bc", MicroOp.FETCH_BC, MicroOp.ADC_HL);
         codeTableED.define(0x4B, "ld bc,(nn)", MicroOp.FETCH_16_ADDRESS, MicroOp.FETCH_WORD_FROM_ADDR, MicroOp.STORE_BC);
 
         codeTableED.define(0x4F, "LD r,a", MicroOp.FETCH_A, MicroOp.STORE_R);
+
+
+        codeTableED.define(0x51, "out (c),d", MicroOp.NOP);
+
 
         codeTableED.define(0x52, "sbc hl,de", MicroOp.FETCH_DE, MicroOp.SBC_HL);
         codeTableED.define(0x53, "ld (nn),de", MicroOp.FETCH_16_ADDRESS, MicroOp.FETCH_DE, MicroOp.STORE_WORD_AT_ADDRESS);
 
         codeTableED.define(0x58, "in e,(c)", MicroOp.FETCH_PORT_C, MicroOp.STORE_E);
+        codeTableED.define(0x59, "out (c),e", MicroOp.NOP);
+        codeTableED.define(0x5A, "adc hl,de", MicroOp.FETCH_DE, MicroOp.ADC_HL);
 
         codeTableED.define(0x5B, "ld de,(nn)", MicroOp.FETCH_16_ADDRESS, MicroOp.FETCH_WORD_FROM_ADDR, MicroOp.STORE_DE);
         codeTableED.define(0x5F, "LD a,r", MicroOp.FETCH_R, MicroOp.STORE_A);
+        codeTableED.define(0x61, "out (c),h", MicroOp.NOP);
         codeTableED.define(0x62, "sbc hl,hl", MicroOp.FETCH_HL, MicroOp.SBC_HL);
+        codeTableED.define(0x67, "RRD", MicroOp.RRD);
+        codeTableED.define(0x6A, "adc hl,hl", MicroOp.FETCH_HL, MicroOp.ADC_HL);
+
         codeTableED.define(0x6B, "ld hl,(nn)", MicroOp.FETCH_16_ADDRESS, MicroOp.FETCH_WORD_FROM_ADDR, MicroOp.STORE_HL);
+
+        codeTableED.define(0x6F, "RLD", MicroOp.RLD);
+
 
         codeTableED.define(0x72, "sbc hl,sp", MicroOp.FETCH_SP, MicroOp.SBC_HL);
 

@@ -46,41 +46,41 @@ public class Emulator {
 
     public void loadZ80() {
         FileReaderZ80 fileReaderZ80 = new FileReaderZ80();
-
+// Mostly working
 //        fileReaderZ80.readFile(romPath+"Zzzz.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"ManicMiner.z80", cpu); // Info byte: 0b100000
+//        fileReaderZ80.readFile(romPath+"JETSETW1.Z80", cpu);
+//        fileReaderZ80.readFile(romPath+"HungryHorace.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"Myth.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"FindersKeepers.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"Arkanoid.z80", cpu); // type 2
+//        fileReaderZ80.readFile(romPath+"ActionBiker.z80", cpu); // Type 2
 
-
-//        fileReaderZ80.readFile(romPath + "FindersKeepers.z80", cpu);
+        // Does something
+//        fileReaderZ80.readFile(romPath+"SabreWulf.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"RainbowIslands.z80", cpu); // Type 1
+        fileReaderZ80.readFile(romPath + "BombJack.z80", cpu); // Type 1
 //        fileReaderZ80.readFile(romPath+"DONKKONG.Z80", cpu);
-//        fileReaderZ80.readFile(romPath+"MAGICCAS.Z80", cpu); // bad
-//        fileReaderZ80.readFile(romPath + "JETSETW1.Z80", cpu);
+//        fileReaderZ80.readFile(romPath+"MAGICCAS.Z80", cpu); // OOB Info byte: 0b10
+//        fileReaderZ80.readFile(romPath+"1942.z80", cpu); // Type 3A
 
-//        fileReaderZ80.readFile(romPath+"1942.z80", cpu); // all fail to load
-//        fileReaderZ80.readFile(romPath+"ActionBiker.z80", cpu); // all fail to load
-//        fileReaderZ80.readFile(romPath+"Airwolf.z80", cpu); // all fail to load
-//        fileReaderZ80.readFile(romPath+"Arkanoid.z80", cpu); // all fail to load
+//        fileReaderZ80.readFile(romPath+"Airwolf.z80", cpu); // Type 2
+
 
 //        fileReaderZ80.readFile(romPath+"Jetpac.z80", cpu);
 
-//        fileReaderZ80.readFile(romPath+"BombJack.z80", cpu);
-//        fileReaderZ80.readFile(romPath+"ChuckieEgg.z80", cpu);
-//        fileReaderZ80.readFile(romPath+"HungryHorace.z80", cpu);
-//        fileReaderZ80.readFile(romPath+"ManicMiner.z80", cpu);
-//        fileReaderZ80.readFile(romPath+"SabreWulf.z80", cpu);
 
-//        fileReaderZ80.readFile(romPath+"FantasyWorldDizzy.z80", cpu);
-//        fileReaderZ80.readFile(romPath+"Myth.z80", cpu);
-//        fileReaderZ80.readFile(romPath+"RainbowIslands.z80", cpu);
-//        fileReaderZ80.readFile(romPath+"RType.z80", cpu); // bad version?
+//        fileReaderZ80.readFile(romPath+"ChuckieEgg.z80", cpu); // Type 2
 
-//        fileReaderZ80.readFile(romPath+"HeadOverHeels.z80", cpu);
-//        fileReaderZ80.readFile(romPath+"JacktheNipper.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"FantasyWorldDizzy.z80", cpu); // Type 1
+
+//        fileReaderZ80.readFile(romPath+"RType.z80", cpu); // type 3A
+//        fileReaderZ80.readFile(romPath+"HeadOverHeels.z80", cpu); // type 1
+//        fileReaderZ80.readFile(romPath+"JacktheNipper.z80", cpu); // OOB
 //        fileReaderZ80.readFile(romPath+"Zorro.z80", cpu);
-
-
-//        fileReaderZ80.readFile(romPath+"Galaxian.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"Galaxian.z80", cpu); // type 1
 //          fileReaderZ80.readFile(romPath+"GNG.z80", cpu);
-//        fileReaderZ80.readFile(romPath+"Silkworm.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"Silkworm.z80", cpu); // type 3
 
     }
 
@@ -114,7 +114,7 @@ public class Emulator {
 
 //        breakpoints.add(0x0DD9); // CL-SET
 
-//        breakpoints.add(0x11E5); // misc
+//        breakpoints.add(0x02E3); // misc
 
 //        breakpoints.add(0x028E); // KEY-SCAN
 
@@ -177,7 +177,7 @@ public class Emulator {
                 processGui();
             }
 
-            if (i % 2000 == 0) interrupt();
+            if (i > 0 && i % 2000 == 0) interrupt();
 
             if (testBreakpoint(cpu.PC) && !breakPointHit) {
                 iterations = i + 128;

@@ -20,9 +20,10 @@ public class FileReaderZ80 {
     }
 
     public void decodeFile(FileInputStream in, CPU cpu) throws IOException {
-        int[] header = new int[30];
+        int[] header = new int[100];
+        int headerPos = 0;
         for (int i = 0; i < 30; i++) {
-            header[i] = in.read();
+            header[headerPos++] = in.read();
         }
         System.out.println("Read header ");
         System.out.println("Info byte: " + Utils.toBinary(header[12]));
@@ -53,7 +54,47 @@ public class FileReaderZ80 {
         int info2 = header[29];
         cpu.interruptMode = info2 & 3;
 
-        System.out.println("PC set to 0x" + Utils.toHex4(cpu.PC));
+        int fileVersion = 0;
+        if (cpu.PC != 0) {
+            System.out.println("File type = 1");
+            fileVersion = 1;
+        }
+
+        // Detect Version 2/3 file (PC will be 0)
+        if (makeWord(header[6], header[7]) == 0) {
+            // Read version type
+            header[headerPos++] = in.read();
+            header[headerPos++] = in.read();
+
+            int extraHeaderMode = makeWord(header[30], header[31]);
+
+            if (extraHeaderMode == 23) {
+                System.out.println("File type = 2");
+                fileVersion = 2;
+                while (headerPos <= 54) {
+                    header[headerPos++] = in.read();
+                }
+            } else if (extraHeaderMode == 54) {
+                System.out.println("File type = 3 A");
+                fileVersion = 3;
+                while (headerPos <= 85) {
+                    header[headerPos++] = in.read();
+                }
+            } else if (extraHeaderMode == 55) {
+                System.out.println("File type = 3 B");
+                fileVersion = 3;
+                while (headerPos <= 86) {
+                    header[headerPos++] = in.read();
+                }
+            } else {
+                System.out.println("Unrecognised header type");
+            }
+
+
+            cpu.PC = makeWord(header[32], header[33]);
+            System.out.println("PC=" + Utils.toHex4(cpu.PC));
+        }
+
 
         // Read compressed data to buffer.
         int[] compressed = new int[0xffff];
@@ -65,20 +106,65 @@ public class FileReaderZ80 {
         int compressedSize = i - 1;
 
         // Decompress.
-        int writeHead = 0x4000;
-        int readHead = 0;
-        while (readHead < compressedSize - 4) {
-            if (compressed[readHead] == 0xED && compressed[readHead + 1] == 0xED) {
-                int repeat = compressed[readHead + 2];
-                int value = compressed[readHead + 3];
-                for (int j = 0; j < repeat; j++) {
-                    cpu.mem.poke(writeHead++, value);
+        if (fileVersion == 1) {
+            int writeHead = 0x4000;
+            int readHead = 0;
+            while (readHead < compressedSize - 4) {
+                if (compressed[readHead] == 0xED && compressed[readHead + 1] == 0xED) {
+                    int repeat = compressed[readHead + 2];
+                    int value = compressed[readHead + 3];
+                    for (int j = 0; j < repeat; j++) {
+                        cpu.mem.poke(writeHead++, value);
+                    }
+                    readHead += 4;
+                } else {
+                    if (writeHead > 0xffff) {
+                        System.out.println("File expand overflow. writehead:" + writeHead + ", readHead:" + readHead + "   compressedSize:" + compressedSize);
+                    }
+
+                    cpu.mem.poke(writeHead++, compressed[readHead++]);
                 }
-                readHead += 4;
-            } else {
-                cpu.mem.poke(writeHead++, compressed[readHead++]);
             }
         }
+
+        if (fileVersion > 1) {
+            int readHead = 0;
+            int writeHead = 0;
+            while (readHead < compressedSize) {
+                int blockLength = makeWord(compressed[readHead++], compressed[readHead++]);
+                if (blockLength == 0) break;
+                int pageNumber = compressed[readHead++];
+
+                System.out.println("Block length: " + blockLength);
+                System.out.println("page number:" + pageNumber);
+
+                if (pageNumber == 4) writeHead = 0x8000;
+                if (pageNumber == 5) writeHead = 0xc000;
+                if (pageNumber == 8) writeHead = 0x4000;
+
+                int blockEnd = readHead + blockLength;
+
+                // skip
+                while (readHead < blockEnd) {
+                    if (compressed[readHead] == 0xED && compressed[readHead + 1] == 0xED) {
+                        int repeat = compressed[readHead + 2];
+                        int value = compressed[readHead + 3];
+                        for (int j = 0; j < repeat; j++) {
+                            cpu.mem.poke(writeHead++, value);
+                        }
+                        readHead += 4;
+                    } else {
+                        if (writeHead > 0xffff) {
+                            System.out.println("File expand overflow. writehead:" + writeHead + ", readHead:" + readHead + "   compressedSize:" + compressedSize);
+                        }
+
+                        cpu.mem.poke(writeHead++, compressed[readHead++]);
+                    }
+                }
+            }
+
+        }
+
 
     }
 

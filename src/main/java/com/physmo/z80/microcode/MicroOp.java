@@ -7,6 +7,7 @@ public enum MicroOp {
     PREFIX_ED,
     PREFIX_FD,
     PREFIX_FD_CB,
+    PREFIX_DD_CB,
     PREFIX_DD,
 
     INC_8,      // INC temp (8 bit)
@@ -159,6 +160,7 @@ public enum MicroOp {
     // PORT IN/OUT
     OUT,
     IN,
+    IN0, OUT0,
 
     // Reset vectors
     RST_00H, RST_08H,
@@ -190,7 +192,7 @@ public enum MicroOp {
     DI, EI,
     IM_0, IM_1, IM_2,
     LDHLSPN, EX_DE_HL,
-    EX_AF_AF, FETCH_PORT_C, EX_SP_HL,       // Exchange AF with AF'
+    EX_AF_AF, FETCH_PORT_C, EX_SP_HL, RLD, RRD,       // Exchange AF with AF'
 }
 
 

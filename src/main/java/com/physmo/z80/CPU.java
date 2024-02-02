@@ -128,7 +128,7 @@ public class CPU {
 
         if (halted) return;
 
-        R = (R + 1) & 0xff;
+        R = (R + 1) & 0xff; // memory refresh register
 
         tickCounter++;
 
@@ -161,9 +161,17 @@ public class CPU {
         if (ops[0] == MicroOp.PREFIX_DD) {
             // Handle ED prefix instructions.
             currentInstruction = mem.peek(PC);
-            lastDecompile = "(Prefix CB) " + decompile(codeTableManager.codeTableDD, PC, currentInstruction);
+            lastDecompile = "(Prefix DD) " + decompile(codeTableManager.codeTableDD, PC, currentInstruction);
             PC++;
             ops = codeTableManager.codeTableDD.getInstructionCode(currentInstruction);
+
+            if (ops[0] == MicroOp.PREFIX_DD_CB) {
+                displacement = mem.peek(PC++); // Read D first
+                currentInstruction = mem.peek(PC);
+                lastDecompile = "(Prefix DDCB) " + decompile(codeTableManager.codeTableDDCB, PC, currentInstruction) + " d=" + Utils.toHex2(displacement);
+                PC++;
+                ops = codeTableManager.codeTableDDCB.getInstructionCode(currentInstruction);
+            }
         } else if (ops[0] == MicroOp.PREFIX_ED) {
             // Handle ED prefix instructions.
             currentInstruction = mem.peek(PC);
@@ -243,6 +251,9 @@ public class CPU {
                 break;
             case FETCH_L:
                 dataBus = L;
+                break;
+            case FETCH_R:
+                dataBus = R;
                 break;
             case FETCH_AF:
                 dataBus = combineBytes(A, FL);
@@ -339,8 +350,8 @@ public class CPU {
                 dataBus = mem.peek(IX + convertSignedByte(displacement));
                 lastData += "  *(" + Utils.toHex4(IX + displacement) + ")";
                 break;
-            case FETCH_pHL:
-                dataBus = mem.peekWord(getHL());
+            case FETCH_pHL: // Error? should be byte!
+                dataBus = mem.peek(getHL());
                 break;
             case STORE_A:
                 A = dataBus;
@@ -488,6 +499,8 @@ public class CPU {
                 dataBus = wrk & 0xFFFF;
                 break;
             case ADD:
+                if ((dataBus & 0xff00) > 0) throw new RuntimeException("8 bit instruction overflow");
+
                 wrk = A + dataBus;
 
                 setFlag(FLAG_C, wrk > 0xFF);
@@ -507,6 +520,8 @@ public class CPU {
 
                 break;
             case ADC:
+                if ((dataBus & 0xff00) > 0) throw new RuntimeException("8 bit instruction overflow");
+
                 wrk = A + dataBus + (testFlag(FLAG_C) ? 1 : 0);
 
                 handleZeroFlag(wrk & 0xff);
@@ -531,11 +546,15 @@ public class CPU {
 
                 break;
             case SUB:
+                if ((dataBus & 0xff00) > 0) throw new RuntimeException("8 bit instruction overflow");
+
                 A = doSub(dataBus);
 
 
                 break;
             case SBC:
+                if ((dataBus & 0xff00) > 0) throw new RuntimeException("8 bit instruction overflow");
+
                 wrk = A - ((dataBus & 0xff) + (testFlag(FLAG_C) ? 1 : 0));
 
                 if ((wrk & 0xFF) > 0) unsetFlag(FLAG_Z);
@@ -574,7 +593,27 @@ public class CPU {
 
                 setHL(wrk);
                 break;
+            case ADC_HL:
+                dataBus += (testFlag(FLAG_C) ? 1 : 0);
+
+                // TODO: this was invented, check it properly
+                wrk = getHL() + dataBus;
+
+                setFlag(FLAG_S, (wrk & 0x8000) > 0);
+                setFlag(FLAG_Z, (wrk & 0xffff) == 0);
+
+                setFlag(FLAG_H, (((getHL() & 0x0FFF) + (dataBus & 0x0FFF)) & 0x1000) > 0);
+                setFlag(FLAG_PV, (((getHL() & 0x8000) == (dataBus & 0x8000))) &&
+                        ((wrk & 0x8000) != (getHL() & 0x8000)));
+
+                unsetFlag(FLAG_N);
+                setFlag(FLAG_C, (wrk & 0x10000) > 0);
+
+                setHL(wrk);
+                break;
             case AND:
+                if ((dataBus & 0xff00) > 0) throw new RuntimeException("8 bit instruction overflow");
+
                 wrk = A & (dataBus & 0xff);
                 A = wrk;
 
@@ -589,6 +628,8 @@ public class CPU {
 
                 break;
             case XOR:
+                if ((dataBus & 0xff00) > 0) throw new RuntimeException("8 bit instruction overflow");
+
                 wrk = (A ^ dataBus) & 0xff;
                 handleZeroFlag(wrk);
                 handleSignFlag(wrk);
@@ -600,6 +641,8 @@ public class CPU {
                 handle53Flag(wrk);
                 break;
             case OR:
+                if ((dataBus & 0xff00) > 0) throw new RuntimeException("8 bit instruction overflow");
+
                 wrk = (A | dataBus) & 0xFF;
                 handleZeroFlag(wrk);
                 handleSignFlag(wrk);
@@ -611,6 +654,7 @@ public class CPU {
                 handle53Flag(wrk);
                 break;
             case CP:
+                if ((dataBus & 0xff00) > 0) throw new RuntimeException("(CP) 8 bit instruction overflow");
 
                 wrk = A;
                 doSub(dataBus);
@@ -619,15 +663,23 @@ public class CPU {
                 break;
 
             case RLC: // Rotate left with carry
+                if ((dataBus & 0xff00) > 0) throw new RuntimeException("8 bit instruction overflow");
+
                 dataBus = doRLC(dataBus);
                 break;
             case RRC:
+                if ((dataBus & 0xff00) > 0) throw new RuntimeException("8 bit instruction overflow");
+
                 dataBus = doRRC(dataBus);
                 break;
             case RL:
+                if ((dataBus & 0xff00) > 0) throw new RuntimeException("8 bit instruction overflow");
+
                 dataBus = doRL(dataBus);
                 break;
             case RR:
+                if ((dataBus & 0xff00) > 0) throw new RuntimeException("8 bit instruction overflow");
+
                 dataBus = doRR(dataBus);
                 break;
 
@@ -897,6 +949,12 @@ public class CPU {
 
                 System.out.println(this.lastDecompile);
                 break;
+            case OUT0:
+                dataBus = doIn(addrBus);
+                break;
+            case IN0:
+
+                break;
             case FETCH_PORT_C:
 
                 dataBus = doIn(getBC() & 0xFFFF);
@@ -929,7 +987,7 @@ public class CPU {
 
                 break;
             case CPL: // ComPLement accumulator (A = ~A).
-                dataBus = ~(A & 0xFF);
+                dataBus = (~(A & 0xFF)) & 0xFF;
                 setFlag(FLAG_N);
                 setFlag(FLAG_H);
                 A = dataBus & 0xff;
@@ -1158,6 +1216,12 @@ public class CPU {
                 mem.poke(SP + 1, wrk);
 
                 break;
+            case RLD:
+                doRLD();
+                break;
+            case RRD:
+                doRRD();
+                break;
             case LDI:
                 doLDI();
                 break;
@@ -1219,6 +1283,43 @@ public class CPU {
         return wrk;
     }
 
+    private void doRLD() {
+        // The contents of the low-order nibble of (HL) are copied to the
+        // high-order nibble of (HL).
+        // The previous contents are copied to the low-order nibble of A.
+        // The previous contents are copied to the low-order nibble of (HL).
+        int HlVal = mem.peek(getHL());
+        int HlNib = HlVal & 0xF0;
+        int ANib = getHL() & 0x0F;
+        mem.poke(getHL(), ((HlVal & 0x0F) << 4) | ANib);
+        A = (A & 0xF0) | (HlNib >> 4);
+
+        handleZeroFlag(A);
+        handleSignFlag(A);
+        unsetFlag(FLAG_H);
+        handleParityFlag(A);
+        unsetFlag(FLAG_N);
+        handle53Flag(A);
+    }
+
+    private void doRRD() {
+        // The contents of the low-order nibble of (HL) are copied to the
+        // high-order nibble of (HL).
+        // The previous contents are copied to the low-order nibble of A.
+        // The previous contents are copied to the low-order nibble of (HL).
+        int HlVal = mem.peek(getHL());
+        int HlNib = HlVal & 0x0F;
+        int ANib = getHL() & 0x0F;
+        mem.poke(getHL(), ((HlVal & 0xF0) >> 4) | (ANib << 4));
+        A = (A & 0xF0) | (HlNib);
+
+        handleZeroFlag(A);
+        handleSignFlag(A);
+        unsetFlag(FLAG_H);
+        handleParityFlag(A);
+        unsetFlag(FLAG_N);
+        handle53Flag(A);
+    }
 
     private void doLDI() {
         // Transfers a byte of data from the memory location pointed to by HL to the memory
@@ -1497,28 +1598,14 @@ public class CPU {
     }
 
     public void jumpRelative(int val) {
-
-        int tc = convertSignedByte(val); // & 0xff);
-
-        int move = val;
-        if (move > 127) move = -((~move + 1) & 0xFF);
-
-        if (tc != move) {
-            for (int i = 0; i < 1000; i++) {
-                System.out.println("FUCK");
-            }
-        }
-
-//        if (displayInstruction)
-//            System.out.println("Jump relative by " + tc + " to " + Utils.toHex4(PC + tc));
-
+        int move = convertSignedByte(val & 0xFF);
         PC = (PC + move) & 0xffff;
-
     }
 
     public int convertSignedByte(int val) {
         if ((val & 0b1000_0000) > 0) {
-            return -1 - ((~val) & 0xff);
+            //return -1 - ((~val) & 0xff);
+            return -((0xFF & (~val & 0xff)) + 1);
         }
         return val;
     }
