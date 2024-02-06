@@ -184,6 +184,8 @@ public enum MicroOp {
     LDDR, // Data copying loop
     CPIR,
 
+    MLT_BC, MLT_DE, MLT_HL, MLT_SP,
+
     LDZPGA, ADDSPNN,
     FETCH_ZPG,
     STORE_AF,

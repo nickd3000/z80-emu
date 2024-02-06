@@ -55,33 +55,35 @@ public class Emulator {
 //        fileReaderZ80.readFile(romPath+"FindersKeepers.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"Arkanoid.z80", cpu); // type 2
 //        fileReaderZ80.readFile(romPath+"ActionBiker.z80", cpu); // Type 2
-
-        // Does something
+//        fileReaderZ80.readFile(romPath+"Jetpac.z80", cpu);
+//        fileReaderZ80.readFile(romPath+"GNG.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"SabreWulf.z80", cpu);
+        fileReaderZ80.readFile(romPath + "1942.z80", cpu); // Type 3A
+
+        // Does something (But crashes)
 //        fileReaderZ80.readFile(romPath+"RainbowIslands.z80", cpu); // Type 1
-        fileReaderZ80.readFile(romPath + "BombJack.z80", cpu); // Type 1
+//        fileReaderZ80.readFile(romPath+"BombJack.z80", cpu); // Type 1
 //        fileReaderZ80.readFile(romPath+"DONKKONG.Z80", cpu);
 //        fileReaderZ80.readFile(romPath+"MAGICCAS.Z80", cpu); // OOB Info byte: 0b10
-//        fileReaderZ80.readFile(romPath+"1942.z80", cpu); // Type 3A
-
 //        fileReaderZ80.readFile(romPath+"Airwolf.z80", cpu); // Type 2
-
-
-//        fileReaderZ80.readFile(romPath+"Jetpac.z80", cpu);
-
-
 //        fileReaderZ80.readFile(romPath+"ChuckieEgg.z80", cpu); // Type 2
-
 //        fileReaderZ80.readFile(romPath+"FantasyWorldDizzy.z80", cpu); // Type 1
-
 //        fileReaderZ80.readFile(romPath+"RType.z80", cpu); // type 3A
 //        fileReaderZ80.readFile(romPath+"HeadOverHeels.z80", cpu); // type 1
 //        fileReaderZ80.readFile(romPath+"JacktheNipper.z80", cpu); // OOB
 //        fileReaderZ80.readFile(romPath+"Zorro.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"Galaxian.z80", cpu); // type 1
-//          fileReaderZ80.readFile(romPath+"GNG.z80", cpu);
-//        fileReaderZ80.readFile(romPath+"Silkworm.z80", cpu); // type 3
 
+//        fileReaderZ80.readFile(romPath+"Silkworm.z80", cpu); // type 3
+//        fileReaderZ80.readFile(romPath+"Chaos.z80", cpu); //
+
+//        fileReaderZ80.readFile(romPath+"BCBill.z80", cpu); //
+//        fileReaderZ80.readFile(romPath+"SpyHunter.z80", cpu); //
+//        fileReaderZ80.readFile(romPath+"Spellbound.z80", cpu); //
+//        fileReaderZ80.readFile(romPath+"Pedro.z80", cpu); //
+//        fileReaderZ80.readFile(romPath+"CauldronII.z80", cpu); //
+//        fileReaderZ80.readFile(romPath+"Cauldron.z80", cpu); //
+//        fileReaderZ80.readFile(romPath+"BubbleBobble.z80", cpu); //
     }
 
     public void initBreakpoints() {
@@ -93,58 +95,73 @@ public class Emulator {
 //        breakpoints.add(0x11CB); // START-NEW
 //        breakpoints.add(0x11F1); //
 //        breakpoints.add(0x12A2); // MAIN-EXEC
-
+//
 //        breakpoints.add(0x121C); // NMI_VECT
-
+//
 //        breakpoints.add(0x1234); // End of NMI_VECT
-
+//
 //        breakpoints.add(0x1222); // peek word
-
+//
 //        breakpoints.add(0x0DAF); // CL-ALL
-
+//
 //        breakpoints.add(0x1228); // STACK POINTER gets set here
-
+//
 //        breakpoints.add(0x0DE2); // flags seem wrong here?
-
+//
 //        breakpoints.add(0x0D89); // CLS-2
-
+//
 //        breakpoints.add(0x0C0A); // PO-MSG - Message print
-
+//
 //        breakpoints.add(0x0E9B); // CL-ADDR
-
+//
 //        breakpoints.add(0x0DD9); // CL-SET
-
-//        breakpoints.add(0x02E3); // misc
-
+//
+//        breakpoints.add(0x02ca); // misc
+//
 //        breakpoints.add(0x028E); // KEY-SCAN
-
+//
 //        breakpoints.add(0x02A1); // KEY-BITS
-
+//
 //        breakpoints.add(0x029D); // KEY DETECTED
-
+//
 //          breakpoints.add(0x03D6); // sound?
-
+//
 //                  breakpoints.add(0x03B5); // BEEPER
-
+//
 //        breakpoints.add(0x111D); // ED-COPY
-
-
-        // Jet Set Willy
+//
+//
+////         Jet Set Willy
 //        breakpoints.add(0x8912); // 8912: Initialise the current room
 //        breakpoints.add(0x8D33); // 8D33: Draw the current room to the screen buffer at 7000
 //        breakpoints.add(0x88FC); // 88FC: Start the game
 //        breakpoints.add(0x8912); // 8912: Initialise the current room
 //                breakpoints.add(0x89AD); // 89AD: Main loop (1)
 //        breakpoints.add(0x8F6D); // 8F6D read jump
-
-        // Finders keepers
+//
+////         Finders keepers
 //        breakpoints.add(0x9AF4);
 //        breakpoints.add(0x9296);
+
+        // Bombjack level start after keypress
+//        breakpoints.add(0x02ca); // misc
+//        breakpoints.add(0x02ca); // misc
+//        breakpoints.add(0xedf2);// building up level - after starting game, before crash
+//        breakpoints.add(0xec42); // before LDIR
+//        breakpoints.add(0xec4e); // after LDIR
+
+        // Silkworm
+//        breakpoints.add(0x1662); // real emu doesn't get here
+//        breakpoints.add(0x1661);
+//        breakpoints.add(0x6230);
+//        breakpoints.add(0x622A);
+//        breakpoints.add(0x1663);
     }
 
     public void interrupt() {
         if (cpu.interruptEnabled == 1) {
             if (cpu.interruptMode == 0) {
+                cpu.halted = false;
 //                System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>> Interrupt (Mode 0)");
             } else if (cpu.interruptMode == 1) {
                 cpu.halted = false;
@@ -152,6 +169,7 @@ public class Emulator {
                 cpu.PC = 0x0038;
 //                System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>> Interrupt (Mode 1)");
             } else if (cpu.interruptMode == 2) {
+                cpu.halted = false;
                 cpu.pushW(cpu.PC);
                 int address = (cpu.I << 8) | cpu.dataBus;
                 cpu.PC = mem.peek(address) | ((mem.peek(address + 1) & 0xffff) << 8);

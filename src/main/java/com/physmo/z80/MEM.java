@@ -16,6 +16,12 @@ public class MEM {
     }
 
     public void poke(int addr, int val) {
+        if (addr == 0xa2a7 && val == 0xFE) {
+            System.out.println(cpu.lastDecompile);
+            throw new RuntimeException("(poke) Byte at " + Utils.toHex4(addr) + " is " + Utils.toHex2(val));
+        }
+
+
         if (val > 0xff) {
             System.out.println(cpu.lastDecompile);
             throw new RuntimeException("(poke) Byte at " + Utils.toHex4(addr) + " is " + Utils.toHex2(val));
@@ -24,7 +30,9 @@ public class MEM {
         if (addr > 0xffff) {
             System.out.println("out of bounds");
         }
-        if (addr > 0x3FFF) RAM[addr] = val;
+
+        if (addr > 0x3FFF)
+            RAM[addr] = val;
     }
 
     public void pokeWord(int addr, int val) {

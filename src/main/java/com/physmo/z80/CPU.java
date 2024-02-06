@@ -350,7 +350,7 @@ public class CPU {
                 dataBus = mem.peek(IX + convertSignedByte(displacement));
                 lastData += "  *(" + Utils.toHex4(IX + displacement) + ")";
                 break;
-            case FETCH_pHL: // Error? should be byte!
+            case FETCH_pHL:
                 dataBus = mem.peek(getHL());
                 break;
             case STORE_A:
@@ -431,8 +431,6 @@ public class CPU {
                 break;
             case INC_8:
                 dataBus = doInc(dataBus);
-
-
                 break;
             case INC_16:
                 dataBus = (dataBus + 1) & 0xffff;
@@ -807,12 +805,24 @@ public class CPU {
                 }
 
                 setFlag(FLAG_S, (A & 0x80) > 0);
-                setFlag(FLAG_Z, A != 0);
-                setFlag(FLAG_H, ((-A) & 0x80) > 0);
+                setFlag(FLAG_Z, A == 0);
+                setFlag(FLAG_H, ((-A) & 0x0F) > 0);
                 setFlag(FLAG_PV, (A == 0x80));
                 setFlag(FLAG_N);
                 setFlag(FLAG_C, A != 0);
                 handle53Flag(A);
+                break;
+            case MLT_BC:
+                setBC((B * C) & 0xFFFF);
+                break;
+            case MLT_DE:
+                setDE((D * E) & 0xFFFF);
+                break;
+            case MLT_HL:
+                setHL((H * L) & 0xFFFF);
+                break;
+            case MLT_SP:
+                SP = (((SP & 0xFF) * ((SP >> 8) & 0xFF)) & 0xFFFF);
                 break;
             case JRNZ:
                 if (!testFlag(FLAG_Z)) {
@@ -947,7 +957,7 @@ public class CPU {
 
                 dataBus = doIn(((A & 0xff) << 8) | (dataBus & 0xff));
 
-                System.out.println(this.lastDecompile);
+//                System.out.println(this.lastDecompile);
                 break;
             case OUT0:
                 dataBus = doIn(addrBus);
@@ -961,37 +971,39 @@ public class CPU {
                 break;
             case DAA: // Decimal Adjust Accumulator to get a correct BCD representation after an arithmetic instruction
 
-                int correction = 0;
+                int temp = A;
                 boolean flagN = testFlag(FLAG_N);
                 boolean flagH = testFlag(FLAG_H);
                 boolean flagC = testFlag(FLAG_C);
 
-                if (flagH || (!flagN && (A & 0xF) > 9))
-                    correction = 6;
-
-                if (flagC || (!flagN && A > 0x99)) {
-                    correction |= 0x60;
-                    setFlag(FLAG_C);
+                if (!flagN) {
+                    if (flagH || ((A & 0x0f) > 9))
+                        temp += 0x06;
+                    if (flagC || (A > 0x99))
+                        temp += 0x60;
+                } else {
+                    if (flagH || ((A & 0x0f) > 9))
+                        temp -= 0x06;
+                    if (flagC || (A > 0x99))
+                        temp -= 0x60;
                 }
 
-                dataBus = A;
-                dataBus += flagN ? -correction : correction;
-                dataBus &= 0xFF;
+                setFlag(FLAG_S, (temp & 0x80) > 0);
+                setFlag(FLAG_Z, (temp & 0xFF) == 0);
+                setFlag(FLAG_H, ((A & 0x10) ^ (temp & 0x10)) > 0);
+                handleParityFlag(temp & 0xff);
+                setFlag(FLAG_C, flagC || (A > 0x99));
+                handle53Flag(temp & 0xff);
 
-                unsetFlag(FLAG_H);
-
-                handleZeroFlag(dataBus);
-                handleSignFlag(dataBus & 0xff);
-                handleParityFlag(dataBus & 0xff);
-                A = dataBus;
+                A = temp & 0xFF;
 
                 break;
             case CPL: // ComPLement accumulator (A = ~A).
-                dataBus = (~(A & 0xFF)) & 0xFF;
+                dataBus = (~(A)) & 0xFF;
                 setFlag(FLAG_N);
                 setFlag(FLAG_H);
                 A = dataBus & 0xff;
-                handleZeroFlag(A);
+                handle53Flag(A);
                 break;
             case SCF: // Set carry flag
                 setFlag(FLAG_C);
@@ -1371,16 +1383,13 @@ public class CPU {
         int data = mem.peek(getHL());
         mem.poke(getDE(), data);
 
-        boolean tempCarry = testFlag(FLAG_C);
-        compare(data);
-        setFlag(FLAG_C, tempCarry);
-
         decHL();
         decDE();
         decBC();
 
         setFlag(FLAG_PV, getBC() != 0);
-
+        setFlag(FLAG_N, false);
+        setFlag(FLAG_H, false);
     }
 
     private void ed_ini() {
@@ -1610,22 +1619,40 @@ public class CPU {
         return val;
     }
 
+//    public int getAF() {
+//        return combineBytes(A, FL & 0xF0);
+//    }
+//
+//    public void setAF(int val) {
+//        this.A = getHighByte(val);
+//        this.FL = getLowByte(val) & 0xF0;
+//    }
+//
+//    public int getAF_() {
+//        return combineBytes(A_, FL_ & 0xF0);
+//    }
+//
+//    public void setAF_(int val) {
+//        this.A_ = getHighByte(val);
+//        this.FL_ = getLowByte(val) & 0xF0;
+//    }
+
     public int getAF() {
-        return combineBytes(A, FL & 0xF0);
+        return combineBytes(A, FL);
     }
 
     public void setAF(int val) {
         this.A = getHighByte(val);
-        this.FL = getLowByte(val) & 0xF0;
+        this.FL = getLowByte(val);
     }
 
     public int getAF_() {
-        return combineBytes(A_, FL_ & 0xF0);
+        return combineBytes(A_, FL_);
     }
 
     public void setAF_(int val) {
         this.A_ = getHighByte(val);
-        this.FL_ = getLowByte(val) & 0xF0;
+        this.FL_ = getLowByte(val);
     }
 
     public int getHighByte(int val) {

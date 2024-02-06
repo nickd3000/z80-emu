@@ -57,6 +57,7 @@ public class FileReaderZ80 {
         int fileVersion = 0;
         if (cpu.PC != 0) {
             System.out.println("File type = 1");
+            System.out.println("PC = " + Utils.toHex4(cpu.PC));
             fileVersion = 1;
         }
 
