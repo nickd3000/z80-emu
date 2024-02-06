@@ -1775,7 +1775,9 @@ public class CPU {
 
     // Get word at PC and move PC on.
     public int getNextByte() {
-        return mem.peek(PC++) & 0xff;
+        int val = mem.peek(PC & 0xFFFF) & 0xff;
+        PC = ((PC + 1) & 0xFFFF);
+        return val;
     }
 
     public void setFlag(int flag) {

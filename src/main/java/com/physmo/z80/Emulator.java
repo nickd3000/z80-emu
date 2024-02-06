@@ -16,7 +16,7 @@ public class Emulator {
     List<Integer> breakpoints = new ArrayList<>();
     Render render = new Render();
     KeyboardProcessor keyboardProcessor;
-    boolean showInstructions = true;
+    boolean showInstructions = false;
     private CPU cpu = null;
     private MEM mem = null;
 
@@ -58,32 +58,35 @@ public class Emulator {
 //        fileReaderZ80.readFile(romPath+"Jetpac.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"GNG.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"SabreWulf.z80", cpu);
-        fileReaderZ80.readFile(romPath + "1942.z80", cpu); // Type 3A
+//        fileReaderZ80.readFile(romPath+"1942.z80", cpu); // Type 3A
+//        fileReaderZ80.readFile(romPath+"Airwolf.z80", cpu); // Type 2
+//        fileReaderZ80.readFile(romPath+"Spellbound.z80", cpu); //
+//        fileReaderZ80.readFile(romPath+"BombJack.z80", cpu); // Type 1
+//        fileReaderZ80.readFile(romPath+"ChuckieEgg.z80", cpu); // Type 2
+
 
         // Does something (But crashes)
-//        fileReaderZ80.readFile(romPath+"RainbowIslands.z80", cpu); // Type 1
-//        fileReaderZ80.readFile(romPath+"BombJack.z80", cpu); // Type 1
+//        fileReaderZ80.readFile(romPath+"RainbowIslands.z80", cpu); // crashes on level Start
 //        fileReaderZ80.readFile(romPath+"DONKKONG.Z80", cpu);
 //        fileReaderZ80.readFile(romPath+"MAGICCAS.Z80", cpu); // OOB Info byte: 0b10
-//        fileReaderZ80.readFile(romPath+"Airwolf.z80", cpu); // Type 2
-//        fileReaderZ80.readFile(romPath+"ChuckieEgg.z80", cpu); // Type 2
+
 //        fileReaderZ80.readFile(romPath+"FantasyWorldDizzy.z80", cpu); // Type 1
 //        fileReaderZ80.readFile(romPath+"RType.z80", cpu); // type 3A
-//        fileReaderZ80.readFile(romPath+"HeadOverHeels.z80", cpu); // type 1
 //        fileReaderZ80.readFile(romPath+"JacktheNipper.z80", cpu); // OOB
 //        fileReaderZ80.readFile(romPath+"Zorro.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"Galaxian.z80", cpu); // type 1
-
 //        fileReaderZ80.readFile(romPath+"Silkworm.z80", cpu); // type 3
-//        fileReaderZ80.readFile(romPath+"Chaos.z80", cpu); //
-
 //        fileReaderZ80.readFile(romPath+"BCBill.z80", cpu); //
 //        fileReaderZ80.readFile(romPath+"SpyHunter.z80", cpu); //
-//        fileReaderZ80.readFile(romPath+"Spellbound.z80", cpu); //
+
 //        fileReaderZ80.readFile(romPath+"Pedro.z80", cpu); //
 //        fileReaderZ80.readFile(romPath+"CauldronII.z80", cpu); //
 //        fileReaderZ80.readFile(romPath+"Cauldron.z80", cpu); //
 //        fileReaderZ80.readFile(romPath+"BubbleBobble.z80", cpu); //
+
+
+        // PC Starts at 0xFFFF
+        //        fileReaderZ80.readFile(romPath+"HeadOverHeels.z80", cpu); // type 1
     }
 
     public void initBreakpoints() {
@@ -159,21 +162,24 @@ public class Emulator {
     }
 
     public void interrupt() {
+        boolean verbose = false;
         if (cpu.interruptEnabled == 1) {
             if (cpu.interruptMode == 0) {
                 cpu.halted = false;
-//                System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>> Interrupt (Mode 0)");
+                if (verbose) System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>> Interrupt (Mode 0)");
             } else if (cpu.interruptMode == 1) {
                 cpu.halted = false;
                 cpu.pushW(cpu.PC);
                 cpu.PC = 0x0038;
-//                System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>> Interrupt (Mode 1)");
+                if (verbose) System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>> Interrupt (Mode 1)");
             } else if (cpu.interruptMode == 2) {
                 cpu.halted = false;
                 cpu.pushW(cpu.PC);
-                int address = (cpu.I << 8) | cpu.dataBus;
+                int address = (cpu.I << 8) | (cpu.dataBus & 0xFF);
                 cpu.PC = mem.peek(address) | ((mem.peek(address + 1) & 0xffff) << 8);
-//                System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>> Interrupt (Mode 2)");
+                if (verbose) System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>> Interrupt (Mode 2)");
+                if (verbose) System.out.println(cpu.lastDecompile);
+                if (verbose) System.out.println("Databus contained: " + Utils.toHex2(cpu.dataBus));
             }
         }
     }
@@ -195,8 +201,6 @@ public class Emulator {
                 processGui();
             }
 
-            if (i > 0 && i % 2000 == 0) interrupt();
-
             if (testBreakpoint(cpu.PC) && !breakPointHit) {
                 iterations = i + 128;
                 breakPointHit = true;
@@ -209,11 +213,14 @@ public class Emulator {
 
             if ((i & 5000) == 0) keyboardProcessor.handleInput();
 
-            if (i % 5000 == 0) {
+            if (i % 5000 == 0 && i > 0) {
+
                 render.render(basicDisplay, cpu, 2);
                 render.renderRegisters(basicDisplay, cpu, 2);
                 basicDisplay.repaint();
                 //System.out.println(cpu.dump());
+
+                interrupt();
             }
         }
 //        dumpScreen();

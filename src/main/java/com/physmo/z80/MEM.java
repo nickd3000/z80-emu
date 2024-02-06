@@ -49,6 +49,9 @@ public class MEM {
     }
 
     public int peek(int addr) {
+        if (addr > 0xffff) {
+            throw new RuntimeException("Address overflow in peek (peek) address: " + Utils.toHex4(addr));
+        }
         if (RAM[addr] > 0xff) {
             throw new RuntimeException("(peek) Byte at " + Utils.toHex4(addr) + " is " + Utils.toHex2(RAM[addr]));
         }
