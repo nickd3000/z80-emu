@@ -68,8 +68,19 @@ public class MEM {
         return RAM;
     }
 
+    int borderColor = 0;
+
+    public int getBorderColor() {
+        return PORTS[0x00FE];
+    }
+
     public void setPort(int portAddress, int value) {
-        PORTS[portAddress & 0xFFFF] = value & 0xff;
+        System.out.println("Port: " + Utils.toHex4(portAddress) + " = " + Utils.toHex2(value));
+        if (portAddress == 254) {
+            PORTS[portAddress & 0xFFFF] = value & 0xff;
+        } else {
+            PORTS[portAddress & 0xFFFF] = value & 0xff;
+        }
     }
 
     public int getPort(int portAddress) {

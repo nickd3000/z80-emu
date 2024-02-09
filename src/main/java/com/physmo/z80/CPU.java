@@ -142,7 +142,7 @@ public class CPU {
         }
 
 
-        int currentInstruction = mem.peek(PC) & 0xff;
+        int currentInstruction = mem.peek((PC & 0xFFFF)) & 0xff;
 
         lastDecompile = decompile(microcode, PC, currentInstruction);
         lastData = "";
@@ -951,6 +951,7 @@ public class CPU {
                 break;
             case OUT:
                 // TODO the port stuff needs to be implemented
+                mem.setPort(addrBus, dataBus);
                 break;
             case IN: // Used for IN A, (n)
                 lastData += "port(" + Utils.toHex4(((A & 0xff) << 8) | (dataBus & 0xff)) + ")";
@@ -960,10 +961,11 @@ public class CPU {
 //                System.out.println(this.lastDecompile);
                 break;
             case OUT0:
-                dataBus = doIn(addrBus);
+
+                mem.setPort(addrBus & 0xFF, dataBus & 0xFF);
                 break;
             case IN0:
-
+                dataBus = doIn(addrBus);
                 break;
             case FETCH_PORT_C:
 
@@ -1611,6 +1613,12 @@ public class CPU {
         PC = (PC + move) & 0xffff;
     }
 
+    public void conditionalJumpRelative(int val, boolean condition) {
+        if (!condition) return;
+        int move = convertSignedByte(val & 0xFF);
+        PC = (PC + move) & 0xffff;
+    }
+
     public int convertSignedByte(int val) {
         if ((val & 0b1000_0000) > 0) {
             //return -1 - ((~val) & 0xff);
@@ -1768,8 +1776,9 @@ public class CPU {
 
     // Get word at PC and move PC on.
     public int getNextWord() {
-        int oprnd = mem.peek(PC++) & 0xff;
-        oprnd = (oprnd) + ((mem.peek(PC++) & 0xff) << 8);
+        int oprnd = mem.peek((PC++) & 0xFFFF) & 0xff;
+        oprnd = (oprnd) + ((mem.peek((PC++) & 0xFFFF) & 0xff) << 8);
+        PC = PC & 0xFFFF;
         return oprnd;
     }
 

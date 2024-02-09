@@ -32,15 +32,19 @@ public class Render {
         bg = colors[14];
     }
 
-    public void render(BasicDisplay bd, CPU cpu, int scale) {
+    public void render(BasicDisplay bd, CPU cpu, int scale, int borderSize) {
         int[] ram = cpu.mem.getRAM();
 
         renderTick = ((renderTick + 1) & 0xffff);
+
+        int borderColor = cpu.mem.getBorderColor();
+        bd.cls(colors[borderColor & 0x07]);
 
         int numBytes = 192 * 32;
         int readHead = 0x4000;
         int x = 0;
         int y = 0;
+
         for (int j = 0; j < 192; j++) {
             for (int i = 0; i < 32; i++) {
 
@@ -61,7 +65,7 @@ public class Render {
                 for (int b = 0; b < 8; b++) {
                     if ((chunk & (1 << (7 - b))) > 0) bd.setDrawColor(fg);
                     else bd.setDrawColor(bg);
-                    bd.drawFilledRect((x + b) * scale, y * scale, scale, scale);
+                    bd.drawFilledRect(borderSize + (x + b) * scale, borderSize + y * scale, scale, scale);
                 }
 
             }
