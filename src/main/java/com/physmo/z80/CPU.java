@@ -218,9 +218,7 @@ public class CPU {
 
     private void doMicroOp(MicroOp op) {
 
-        int carryIn;
         int carryOut;
-        boolean overflow = false;
         int wrk = 0;
         boolean bak_s, bak_z, bak_p;
 
@@ -229,7 +227,7 @@ public class CPU {
                 halted = true;
                 break;
             case NOP:
-                System.out.println("NOP");
+//                System.out.println("NOP");
                 break;
             case FETCH_A:
                 dataBus = A;
@@ -825,76 +823,49 @@ public class CPU {
                 SP = (((SP & 0xFF) * ((SP >> 8) & 0xFF)) & 0xFFFF);
                 break;
             case JRNZ:
-                if (!testFlag(FLAG_Z)) {
-                    jumpRelative(dataBus);
-                }
+                conditionalJumpRelative(dataBus, !testFlag(FLAG_Z));
                 break;
             case JRZ:
-                if (testFlag(FLAG_Z)) {
-                    jumpRelative(dataBus);
-                }
+                conditionalJumpRelative(dataBus, testFlag(FLAG_Z));
                 break;
             case JRNC:
-                if (!testFlag(FLAG_C)) {
-                    jumpRelative(dataBus);
-                }
+                conditionalJumpRelative(dataBus, !testFlag(FLAG_C));
                 break;
             case JRC:
-                if (testFlag(FLAG_C)) {
-                    jumpRelative(dataBus);
-                }
+                conditionalJumpRelative(dataBus, testFlag(FLAG_C));
                 break;
             case JR:
-                jumpRelative(dataBus);
-
+                conditionalJumpRelative(dataBus, true);
                 break;
             case JPZ:
-                if (testFlag(FLAG_Z)) {
-                    PC = addrBus;
-                }
+                conditionalJump(addrBus, testFlag(FLAG_Z));
                 break;
             case JPNZ:
-                if (!testFlag(FLAG_Z)) {
-                    PC = addrBus;
-                }
+                conditionalJump(addrBus, !testFlag(FLAG_Z));
                 break;
             case JPNC:
-                if (!testFlag(FLAG_C)) {
-                    PC = addrBus;
-                }
+                conditionalJump(addrBus, !testFlag(FLAG_C));
                 break;
             case JP_PO:
-                if (!testFlag(FLAG_PV)) {
-                    PC = addrBus;
-                }
+                conditionalJump(addrBus, !testFlag(FLAG_PV));
                 break;
             case JP_PE:
-                if (testFlag(FLAG_PV)) {
-                    PC = addrBus;
-                }
+                conditionalJump(addrBus, testFlag(FLAG_PV));
                 break;
             case JP_P:
-                if (!testFlag(FLAG_S)) {
-                    PC = addrBus;
-                }
+                conditionalJump(addrBus, !testFlag(FLAG_S));
                 break;
             case JP_M:
-                if (testFlag(FLAG_S)) {
-                    PC = addrBus;
-                }
+                conditionalJump(addrBus, testFlag(FLAG_S));
                 break;
             case DJNZ:
                 // The B register is decremented, and if not zero, the signed value d is added to PC.
                 // The jump is measured from the start of the instruction opcode.
                 B = (B - 1) & 0xff;
-                if (B != 0) {
-                    jumpRelative(dataBus);
-                }
+                conditionalJumpRelative(dataBus, B != 0);
                 break;
             case JPC:
-                if (testFlag(FLAG_C)) {
-                    PC = addrBus;
-                }
+                conditionalJump(addrBus, testFlag(FLAG_C));
                 break;
             case JP:
                 PC = addrBus;
@@ -908,46 +879,28 @@ public class CPU {
                 enableInterrupts();
                 break;
             case RETZ:
-                if (testFlag(FLAG_Z)) {
-                    wrk = popW();
-                    PC = wrk;
-                }
+                conditionalReturn(testFlag(FLAG_Z));
                 break;
             case RETNZ:
-                if (!testFlag(FLAG_Z)) {
-                    wrk = popW();
-                    PC = wrk;
-                }
+                conditionalReturn(!testFlag(FLAG_Z));
                 break;
             case RETNC:
-                if (!testFlag(FLAG_C)) {
-                    PC = popW();
-                }
+                conditionalReturn(!testFlag(FLAG_C));
                 break;
             case RETC:
-                if (testFlag(FLAG_C)) {
-                    PC = popW();
-                }
+                conditionalReturn(testFlag(FLAG_C));
                 break;
             case RET_PO:
-                if (!testFlag(FLAG_PV)) {
-                    PC = popW();
-                }
+                conditionalReturn(!testFlag(FLAG_PV));
                 break;
             case RET_P:
-                if (!testFlag(FLAG_S)) {
-                    PC = popW();
-                }
+                conditionalReturn(!testFlag(FLAG_S));
                 break;
             case RET_PE:
-                if (testFlag(FLAG_PV)) {
-                    PC = popW();
-                }
+                conditionalReturn(testFlag(FLAG_PV));
                 break;
             case RET_M:
-                if (testFlag(FLAG_S)) {
-                    PC = popW();
-                }
+                conditionalReturn(testFlag(FLAG_S));
                 break;
             case OUT:
                 // TODO the port stuff needs to be implemented
@@ -1033,28 +986,28 @@ public class CPU {
                 call(addrBus);
                 break;
             case CALLNZ:
-                call(addrBus, !testFlag(FLAG_Z));
+                conditionalCall(addrBus, !testFlag(FLAG_Z));
                 break;
             case CALLZ:
-                call(addrBus, testFlag(FLAG_Z));
+                conditionalCall(addrBus, testFlag(FLAG_Z));
                 break;
             case CALLC:
-                call(addrBus, testFlag(FLAG_C));
+                conditionalCall(addrBus, testFlag(FLAG_C));
                 break;
             case CALLNC:
-                call(addrBus, !testFlag(FLAG_C));
+                conditionalCall(addrBus, !testFlag(FLAG_C));
                 break;
             case CALLPO:
-                call(addrBus, !testFlag(FLAG_PV));
+                conditionalCall(addrBus, !testFlag(FLAG_PV));
                 break;
             case CALLP:
-                call(addrBus, !testFlag(FLAG_S));
+                conditionalCall(addrBus, !testFlag(FLAG_S));
                 break;
             case CALLM:
-                call(addrBus, testFlag(FLAG_S));
+                conditionalCall(addrBus, testFlag(FLAG_S));
                 break;
             case CALLPE:
-                call(addrBus, testFlag(FLAG_PV));
+                conditionalCall(addrBus, testFlag(FLAG_PV));
                 break;
 
             case RST_18H:
@@ -1571,6 +1524,7 @@ public class CPU {
         interruptMode = i;
     }
 
+    // TODO: replace shifts here with constants for each bit.
     public int setBit(int val, int bit) {
         return val | (1 << bit);
     }
@@ -1593,8 +1547,6 @@ public class CPU {
         setFlag(FLAG_H);
         setFlag(FLAG_S, (bit == 7 && !testFlag(FLAG_Z)));
 
-
-        //System.out.println("BIT value was " + Utils.toHex2(val));
     }
 
 
@@ -1619,6 +1571,17 @@ public class CPU {
         PC = (PC + move) & 0xffff;
     }
 
+    public void conditionalJump(int address, boolean condition) {
+        if (!condition) return;
+        PC = address;
+    }
+
+    public void conditionalReturn(boolean condition) {
+        if (!condition) return;
+        PC = popW();
+    }
+
+
     public int convertSignedByte(int val) {
         if ((val & 0b1000_0000) > 0) {
             //return -1 - ((~val) & 0xff);
@@ -1627,23 +1590,7 @@ public class CPU {
         return val;
     }
 
-//    public int getAF() {
-//        return combineBytes(A, FL & 0xF0);
-//    }
-//
-//    public void setAF(int val) {
-//        this.A = getHighByte(val);
-//        this.FL = getLowByte(val) & 0xF0;
-//    }
-//
-//    public int getAF_() {
-//        return combineBytes(A_, FL_ & 0xF0);
-//    }
-//
-//    public void setAF_(int val) {
-//        this.A_ = getHighByte(val);
-//        this.FL_ = getLowByte(val) & 0xF0;
-//    }
+
 
     public int getAF() {
         return combineBytes(A, FL);
@@ -1757,6 +1704,7 @@ public class CPU {
             unsetFlag(FLAG_3);
     }
 
+    // TODO: recode this slow temp version.
     public void handleParityFlag(int val) {
         int count = 0;
         if ((val & 0b0000_0001) > 0) count++;
@@ -1827,7 +1775,7 @@ public class CPU {
         PC = addr;
     }
 
-    public void call(int addr, boolean condition) {
+    public void conditionalCall(int addr, boolean condition) {
         if (condition) {
             pushW(PC);
             PC = addr;

@@ -75,7 +75,7 @@ public class MEM {
     }
 
     public void setPort(int portAddress, int value) {
-        System.out.println("Port: " + Utils.toHex4(portAddress) + " = " + Utils.toHex2(value));
+        //System.out.println("Port: " + Utils.toHex4(portAddress) + " = " + Utils.toHex2(value));
         if (portAddress == 254) {
             PORTS[portAddress & 0xFFFF] = value & 0xff;
         } else {

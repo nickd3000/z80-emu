@@ -16,7 +16,7 @@ public class Emulator {
     List<Integer> breakpoints = new ArrayList<>();
     Render render = new Render();
     KeyboardProcessor keyboardProcessor;
-    boolean showInstructions = true;
+    boolean showInstructions = false;
     int borderSize = 50;
     private CPU cpu = null;
     private MEM mem = null;
@@ -65,7 +65,7 @@ public class Emulator {
 //        fileReaderZ80.readFile(romPath+"BombJack.z80", cpu); // Type 1
 //        fileReaderZ80.readFile(romPath+"ChuckieEgg.z80", cpu); // Type 2
 //        fileReaderZ80.readFile(romPath+"FantasyWorldDizzy.z80", cpu); // Type 1
-//        fileReaderZ80.readFile(romPath+"RType.z80", cpu); // type 3A
+        fileReaderZ80.readFile(romPath + "RType.z80", cpu); // type 3A
 //        fileReaderZ80.readFile(romPath+"JacktheNipper.z80", cpu); // OOB
 //        fileReaderZ80.readFile(romPath+"BountyBob.z80", cpu); //
 //        fileReaderZ80.readFile(romPath+"Feud.z80", cpu); //
@@ -87,7 +87,7 @@ public class Emulator {
 
 
         // PC Starts at 0xFFFF
-        fileReaderZ80.readFile(romPath + "HeadOverHeels.z80", cpu); // type 1
+//        fileReaderZ80.readFile(romPath + "HeadOverHeels.z80", cpu); // type 1
 
 
     }
@@ -128,7 +128,7 @@ public class Emulator {
 //        breakpoints.add(0x1663);
 
         // head over heels
-        breakpoints.add(0x11dc); // real emu doesn't get here
+//        breakpoints.add(0x11dc); // real emu doesn't get here
     }
 
     public void interrupt() {
