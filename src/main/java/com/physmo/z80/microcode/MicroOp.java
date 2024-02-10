@@ -33,7 +33,7 @@ public enum MicroOp {
     FETCH_F,     // Read register F to temp
     FETCH_I,     // Read register I to temp
     FETCH_R,     // Read register R to temp
-
+    FETCH_0,
     FETCH_8,     // Read next byte
     FETCH_16,    // Read next word
 
@@ -183,6 +183,7 @@ public enum MicroOp {
     LDIR,
     LDDR, // Data copying loop
     CPIR,
+    CPDR,
 
     MLT_BC, MLT_DE, MLT_HL, MLT_SP,
 

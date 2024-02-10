@@ -11,7 +11,7 @@ public class MEM {
     public MEM(CPU cpu) {
         this.cpu = cpu;
         for (int i = 0; i < 0xffff; i++) {
-            PORTS[i] = 0x00;
+            PORTS[i] = 0xBF;
         }
     }
 

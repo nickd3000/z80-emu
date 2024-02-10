@@ -43,6 +43,7 @@ public class CPU {
     MEM mem = null;
     String lastDecompile = "";
     String lastData = "";
+    boolean enableLastData = false;
     int tickCounter = 0;
 
 
@@ -286,25 +287,28 @@ public class CPU {
             case FETCH_IY_H:
                 dataBus = (IY >> 8) & 0xFF;
                 break;
+            case FETCH_0:
+                dataBus = 0;
+                break;
             case FETCH_8:
                 dataBus = getNextByte();
-                lastData = "  (" + Utils.toHex2(dataBus) + ")";
+                if (enableLastData) lastData = "  (" + Utils.toHex2(dataBus) + ")";
                 break;
             case FETCH_16:
                 dataBus = getNextWord();
-                lastData = "  (" + Utils.toHex4(dataBus) + ")";
+                if (enableLastData) lastData = "  (" + Utils.toHex4(dataBus) + ")";
                 break;
             case FETCH_8_ADDRESS:
                 addrBus = getNextByte();
-                lastData = "  *(" + Utils.toHex2(addrBus) + ")";
+                if (enableLastData) lastData = "  *(" + Utils.toHex2(addrBus) + ")";
                 break;
             case FETCH_16_ADDRESS:
                 addrBus = getNextWord();
-                lastData = "  *(" + Utils.toHex4(addrBus) + ")";
+                if (enableLastData) lastData = "  *(" + Utils.toHex4(addrBus) + ")";
                 break;
             case FETCH_BYTE_TO_DISPLACEMENT:
                 displacement = getNextByte();
-                lastData = "  d(" + Utils.toHex2(displacement) + ")";
+                if (enableLastData) lastData = "  d(" + Utils.toHex2(displacement) + ")";
                 break;
             case SET_ADDR_FROM_A:
                 addrBus = A;
@@ -334,19 +338,19 @@ public class CPU {
                 break;
             case STORE_BYTE_AT_ADDRESS:
                 mem.poke(addrBus, dataBus);
-                lastData += "  *(" + Utils.toHex4(addrBus) + ")";
+                if (enableLastData) lastData += "  *(" + Utils.toHex4(addrBus) + ")";
                 break;
             case STORE_WORD_AT_ADDRESS:
                 mem.pokeWord(addrBus, dataBus);
-                lastData += "  *(" + Utils.toHex4(addrBus) + ")";
+                if (enableLastData) lastData += "  *(" + Utils.toHex4(addrBus) + ")";
                 break;
             case FETCH_pIY_D:
                 dataBus = mem.peek(IY + convertSignedByte(displacement));
-                lastData += "  *(" + Utils.toHex4(IY + displacement) + ")";
+                if (enableLastData) lastData += "  *(" + Utils.toHex4(IY + displacement) + ")";
                 break;
             case FETCH_pIX_D:
                 dataBus = mem.peek(IX + convertSignedByte(displacement));
-                lastData += "  *(" + Utils.toHex4(IX + displacement) + ")";
+                if (enableLastData) lastData += "  *(" + Utils.toHex4(IX + displacement) + ")";
                 break;
             case FETCH_pHL:
                 dataBus = mem.peek(getHL());
@@ -551,17 +555,15 @@ public class CPU {
             case SBC:
                 if ((dataBus & 0xff00) > 0) throw new RuntimeException("8 bit instruction overflow");
 
-                wrk = A - ((dataBus & 0xff) + (testFlag(FLAG_C) ? 1 : 0));
+                wrk = A - (dataBus & 0xff) - (testFlag(FLAG_C) ? 1 : 0);
 
-                if ((wrk & 0xFF) > 0) unsetFlag(FLAG_Z);
-                else setFlag(FLAG_Z);
+
+                setFlag(FLAG_S, ((wrk & 0x80) > 0));
+                setFlag(FLAG_Z, ((wrk & 0xff) == 0));
+                setFlag(FLAG_H, ((A ^ dataBus ^ wrk) & 0x10) != 0);
+
                 if ((wrk & 0x100) > 0) setFlag(FLAG_C);
                 else unsetFlag(FLAG_C);
-                if (((A ^ dataBus ^ wrk) & 0x10) != 0) setFlag(FLAG_H);
-                else unsetFlag(FLAG_H);
-
-                if ((wrk & 0x80) > 0) setFlag(FLAG_S);
-                unsetFlag(FLAG_S);
 
                 setFlag(FLAG_PV, ((A & 0x80) != (dataBus & 0x80)) && ((A & 0x80) != (wrk & 0x80)));
 
@@ -727,12 +729,13 @@ public class CPU {
                 setFlag(FLAG_C, (dataBus & 0x80) > 0);
                 unsetFlag(FLAG_N);
                 unsetFlag(FLAG_H);
-                unsetFlag(FLAG_Z);
 
                 wrk = (dataBus << 1) & 0xFF;
+                setFlag(FLAG_Z, wrk == 0);
+                setFlag(FLAG_S, (wrk & 0x80) > 0);
+                handleParityFlag(wrk);
                 dataBus = wrk;
 
-                handleZeroFlag(wrk);
                 handle53Flag(wrk);
 
                 break;
@@ -758,18 +761,17 @@ public class CPU {
             case SLL:
                 // The contents of the memory location pointed to by IY plus d are shifted left one bit position.
                 // The contents of bit 7 are put into the carry flag and a one is put into bit 0.
-                carryOut = (dataBus & 0x80);
 
-                if (carryOut > 0) setFlag(FLAG_C);
-                else unsetFlag(FLAG_C);
+                setFlag(FLAG_C, (dataBus & 0x80) > 0);
 
                 unsetFlag(FLAG_N);
                 unsetFlag(FLAG_H);
 
-                wrk = (dataBus << 1) | 1;
+                wrk = ((dataBus << 1) & 0xFF) | 1;
 
                 handleZeroFlag(wrk);
                 setFlag(FLAG_S, (wrk & 0x80) > 0);
+                handleParityFlag(wrk);
                 handle53Flag(wrk);
 
                 dataBus = wrk;
@@ -778,19 +780,16 @@ public class CPU {
             case SRL:
                 // data is shifted right one bit position.
                 // The contents of bit 0 are copied to the carry flag and a zero is put into bit 7.
-                carryOut = (dataBus & 1);
-
-                if (carryOut > 0) setFlag(FLAG_C);
-                else unsetFlag(FLAG_C);
+                setFlag(FLAG_C, (dataBus & 1) > 0);
 
                 unsetFlag(FLAG_N);
                 unsetFlag(FLAG_H);
-                unsetFlag(FLAG_S);
 
-                wrk = (dataBus >> 1) & 0x7F;
+                wrk = ((dataBus >> 1)) & 0x7F;
 
-                handleParityFlag(wrk);
                 handleZeroFlag(wrk);
+                unsetFlag(FLAG_S);
+                handleParityFlag(wrk);
                 handle53Flag(wrk);
 
                 dataBus = wrk;
@@ -907,7 +906,7 @@ public class CPU {
                 mem.setPort(addrBus, dataBus);
                 break;
             case IN: // Used for IN A, (n)
-                lastData += "port(" + Utils.toHex4(((A & 0xff) << 8) | (dataBus & 0xff)) + ")";
+                if (enableLastData) lastData += "port(" + Utils.toHex4(((A & 0xff) << 8) | (dataBus & 0xff)) + ")";
 
                 dataBus = doIn(((A & 0xff) << 8) | (dataBus & 0xff));
 
@@ -1216,7 +1215,16 @@ public class CPU {
             case LDDR:
                 doLDD();
 
-                if (getBC() != 0 && !testFlag(FLAG_Z)) {
+                if (getBC() != 0) {
+                    PC = (PC - 2 & 0xFFFF);
+                }
+                break;
+            case CPD:
+                doCPD();
+                break;
+            case CPDR:
+                doCPD();
+                if (getBC() != 0) {
                     PC = (PC - 2 & 0xFFFF);
                 }
                 break;
@@ -1256,10 +1264,14 @@ public class CPU {
         // The previous contents are copied to the low-order nibble of A.
         // The previous contents are copied to the low-order nibble of (HL).
         int HlVal = mem.peek(getHL());
-        int HlNib = HlVal & 0xF0;
-        int ANib = getHL() & 0x0F;
-        mem.poke(getHL(), ((HlVal & 0x0F) << 4) | ANib);
-        A = (A & 0xF0) | (HlNib >> 4);
+        int temp1 = HlVal & 0xF0;
+        int temp2 = A & 0x0F;
+
+        HlVal = ((HlVal & 0x0F) << 4) | temp2;
+        A = (A & 0xF0) | (temp1 >> 4);
+
+        mem.poke(getHL(), HlVal);
+
 
         handleZeroFlag(A);
         handleSignFlag(A);
@@ -1275,10 +1287,13 @@ public class CPU {
         // The previous contents are copied to the low-order nibble of A.
         // The previous contents are copied to the low-order nibble of (HL).
         int HlVal = mem.peek(getHL());
-        int HlNib = HlVal & 0x0F;
-        int ANib = getHL() & 0x0F;
-        mem.poke(getHL(), ((HlVal & 0xF0) >> 4) | (ANib << 4));
-        A = (A & 0xF0) | (HlNib);
+        int temp1 = HlVal & 0x0F;
+        int temp2 = A & 0x0F;
+
+        HlVal = ((HlVal & 0xF0) >> 4) | (temp2 << 4);
+        A = (A & 0xF0) | (temp1);
+
+        mem.poke(getHL(), HlVal);
 
         handleZeroFlag(A);
         handleSignFlag(A);
@@ -1330,6 +1345,23 @@ public class CPU {
 
     }
 
+    private void doCPD() {
+        // Compares the value of the memory location pointed to by HL with A.
+        // Then HL is incremented and BC is decremented.
+        // p/v is reset if BC becomes zero and set otherwise.
+        int data = mem.peek(getHL());
+
+        boolean tempCarry = testFlag(FLAG_C);
+        compare(data);
+        setFlag(FLAG_C, tempCarry);
+
+        decHL();
+        decBC();
+
+        setFlag(FLAG_PV, getBC() != 0);
+
+    }
+
     private void doLDD() {
         // Transfers a byte of data from the memory location pointed
         // to by HL to the memory location pointed to by DE.
@@ -1345,6 +1377,9 @@ public class CPU {
         setFlag(FLAG_PV, getBC() != 0);
         setFlag(FLAG_N, false);
         setFlag(FLAG_H, false);
+        setFlag(FLAG_5, ((A + data) & 0x08) > 0);
+        setFlag(FLAG_3, ((A + data) & 0x02) > 0);
+
     }
 
     private void ed_ini() {
