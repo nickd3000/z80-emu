@@ -83,6 +83,7 @@ public enum MicroOp {
     STORE_pIX_D,
     STORE_pHL,
     STORE_R,
+    OUT_PORT_C,
 
 
     ADD_HL,    // Add HL to temp
@@ -103,6 +104,8 @@ public enum MicroOp {
     RRC,
     SET_ADDR_FROM_HL_INC,
     SET_ADDR_FROM_HL_DEC,
+
+    LD_A_I,
 
     BIT0, BIT1, BIT2, BIT3, BIT4, BIT5, BIT6, BIT7,
     SET0, SET1, SET2, SET3, SET4, SET5, SET6, SET7,
@@ -141,6 +144,7 @@ public enum MicroOp {
     RET, RETI, RETZ, RETNZ,
     RETNC, RETC,
     RET_PO, RET_P, RET_M, RET_PE,
+    RETN,
 
     // STACK
     PUSHW,
@@ -175,15 +179,18 @@ public enum MicroOp {
     CPI,
     INI,
     OUTI,
+    OTIR,
     LDD,
     CPD,
     IND,
     OUTD,
+
     // Repeating versions of the special ED commands
     LDIR,
     LDDR, // Data copying loop
     CPIR,
     CPDR,
+    OTDR,
 
     MLT_BC, MLT_DE, MLT_HL, MLT_SP,
 
@@ -196,6 +203,7 @@ public enum MicroOp {
     IM_0, IM_1, IM_2,
     LDHLSPN, EX_DE_HL,
     EX_AF_AF, FETCH_PORT_C, EX_SP_HL, RLD, RRD,       // Exchange AF with AF'
+    EX_SP_IY, EX_SP_IX
 }
 
 

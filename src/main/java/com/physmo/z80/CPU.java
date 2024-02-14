@@ -43,9 +43,10 @@ public class CPU {
     MEM mem = null;
     String lastDecompile = "";
     String lastData = "";
-    boolean enableLastData = false;
+    boolean enableDecompile = false;
     int tickCounter = 0;
-
+    int iff1 = 0;
+    int iff2 = 0;
 
     public String getFlagsString() {
         // -Z---V--
@@ -145,8 +146,10 @@ public class CPU {
 
         int currentInstruction = mem.peek((PC & 0xFFFF)) & 0xff;
 
-        lastDecompile = decompile(microcode, PC, currentInstruction);
-        lastData = "";
+        if (enableDecompile) {
+            lastDecompile = decompile(microcode, PC, currentInstruction);
+            lastData = "";
+        }
 
         PC++;
 
@@ -155,28 +158,32 @@ public class CPU {
         if (ops[0] == MicroOp.PREFIX_CB) {
             // Handle ED prefix instructions.
             currentInstruction = mem.peek(PC);
-            lastDecompile = "(Prefix CB) " + decompile(codeTableManager.codeTableCB, PC, currentInstruction);
+            if (enableDecompile)
+                lastDecompile = "(Prefix CB) " + decompile(codeTableManager.codeTableCB, PC, currentInstruction);
             PC++;
             ops = codeTableManager.codeTableCB.getInstructionCode(currentInstruction);
         }
         if (ops[0] == MicroOp.PREFIX_DD) {
             // Handle ED prefix instructions.
             currentInstruction = mem.peek(PC);
-            lastDecompile = "(Prefix DD) " + decompile(codeTableManager.codeTableDD, PC, currentInstruction);
+            if (enableDecompile)
+                lastDecompile = "(Prefix DD) " + decompile(codeTableManager.codeTableDD, PC, currentInstruction);
             PC++;
             ops = codeTableManager.codeTableDD.getInstructionCode(currentInstruction);
 
             if (ops[0] == MicroOp.PREFIX_DD_CB) {
                 displacement = mem.peek(PC++); // Read D first
                 currentInstruction = mem.peek(PC);
-                lastDecompile = "(Prefix DDCB) " + decompile(codeTableManager.codeTableDDCB, PC, currentInstruction) + " d=" + Utils.toHex2(displacement);
+                if (enableDecompile)
+                    lastDecompile = "(Prefix DDCB) " + decompile(codeTableManager.codeTableDDCB, PC, currentInstruction) + " d=" + Utils.toHex2(displacement);
                 PC++;
                 ops = codeTableManager.codeTableDDCB.getInstructionCode(currentInstruction);
             }
         } else if (ops[0] == MicroOp.PREFIX_ED) {
             // Handle ED prefix instructions.
             currentInstruction = mem.peek(PC);
-            lastDecompile = "(Prefix ED) " + decompile(codeTableManager.codeTableED, PC, currentInstruction);
+            if (enableDecompile)
+                lastDecompile = "(Prefix ED) " + decompile(codeTableManager.codeTableED, PC, currentInstruction);
             PC++;
             ops = codeTableManager.codeTableED.getInstructionCode(currentInstruction);
         } else if (ops[0] == MicroOp.PREFIX_FD) { // Handle FD prefix instructions.
@@ -188,7 +195,8 @@ public class CPU {
             if (ops[0] == MicroOp.PREFIX_FD_CB) {
                 displacement = mem.peek(PC++); // Read D first
                 currentInstruction = mem.peek(PC);
-                lastDecompile = "(Prefix FDCB) " + decompile(codeTableManager.codeTableFDCB, PC, currentInstruction) + " d=" + Utils.toHex2(displacement);
+                if (enableDecompile)
+                    lastDecompile = "(Prefix FDCB) " + decompile(codeTableManager.codeTableFDCB, PC, currentInstruction) + " d=" + Utils.toHex2(displacement);
                 PC++;
                 ops = codeTableManager.codeTableFDCB.getInstructionCode(currentInstruction);
             }
@@ -269,6 +277,9 @@ public class CPU {
             case FETCH_SP:
                 dataBus = SP;
                 break;
+            case FETCH_I:
+                dataBus = I;
+                break;
             case FETCH_IY:
                 dataBus = IY;
                 break;
@@ -292,23 +303,23 @@ public class CPU {
                 break;
             case FETCH_8:
                 dataBus = getNextByte();
-                if (enableLastData) lastData = "  (" + Utils.toHex2(dataBus) + ")";
+                if (enableDecompile) lastData = "  (" + Utils.toHex2(dataBus) + ")";
                 break;
             case FETCH_16:
                 dataBus = getNextWord();
-                if (enableLastData) lastData = "  (" + Utils.toHex4(dataBus) + ")";
+                if (enableDecompile) lastData = "  (" + Utils.toHex4(dataBus) + ")";
                 break;
             case FETCH_8_ADDRESS:
                 addrBus = getNextByte();
-                if (enableLastData) lastData = "  *(" + Utils.toHex2(addrBus) + ")";
+                if (enableDecompile) lastData = "  *(" + Utils.toHex2(addrBus) + ")";
                 break;
             case FETCH_16_ADDRESS:
                 addrBus = getNextWord();
-                if (enableLastData) lastData = "  *(" + Utils.toHex4(addrBus) + ")";
+                if (enableDecompile) lastData = "  *(" + Utils.toHex4(addrBus) + ")";
                 break;
             case FETCH_BYTE_TO_DISPLACEMENT:
                 displacement = getNextByte();
-                if (enableLastData) lastData = "  d(" + Utils.toHex2(displacement) + ")";
+                if (enableDecompile) lastData = "  d(" + Utils.toHex2(displacement) + ")";
                 break;
             case SET_ADDR_FROM_A:
                 addrBus = A;
@@ -338,19 +349,19 @@ public class CPU {
                 break;
             case STORE_BYTE_AT_ADDRESS:
                 mem.poke(addrBus, dataBus);
-                if (enableLastData) lastData += "  *(" + Utils.toHex4(addrBus) + ")";
+                if (enableDecompile) lastData += "  *(" + Utils.toHex4(addrBus) + ")";
                 break;
             case STORE_WORD_AT_ADDRESS:
                 mem.pokeWord(addrBus, dataBus);
-                if (enableLastData) lastData += "  *(" + Utils.toHex4(addrBus) + ")";
+                if (enableDecompile) lastData += "  *(" + Utils.toHex4(addrBus) + ")";
                 break;
             case FETCH_pIY_D:
                 dataBus = mem.peek(IY + convertSignedByte(displacement));
-                if (enableLastData) lastData += "  *(" + Utils.toHex4(IY + displacement) + ")";
+                if (enableDecompile) lastData += "  *(" + Utils.toHex4(IY + displacement) + ")";
                 break;
             case FETCH_pIX_D:
                 dataBus = mem.peek(IX + convertSignedByte(displacement));
-                if (enableLastData) lastData += "  *(" + Utils.toHex4(IX + displacement) + ")";
+                if (enableDecompile) lastData += "  *(" + Utils.toHex4(IX + displacement) + ")";
                 break;
             case FETCH_pHL:
                 dataBus = mem.peek(getHL());
@@ -414,6 +425,15 @@ public class CPU {
                 break;
             case STORE_IY_L:
                 IY = (IY & 0xff00) | ((dataBus & 0xff));
+                break;
+            case LD_A_I:
+                A = I;
+                setFlag(FLAG_S, (A & 0x80) > 0);
+                handleZeroFlag(A);
+                unsetFlag(FLAG_H);
+                unsetFlag(FLAG_N);
+                setFlag(FLAG_PV, iff2 > 0);
+                handle53Flag(A);
                 break;
             case STORE_R:
                 R = dataBus;
@@ -901,12 +921,19 @@ public class CPU {
             case RET_M:
                 conditionalReturn(testFlag(FLAG_S));
                 break;
+            case RETN:
+                PC = popW();
+                iff1 = iff2;
+                break;
             case OUT:
                 // TODO the port stuff needs to be implemented
                 mem.setPort(addrBus, dataBus);
                 break;
+            case OUT_PORT_C:
+                mem.setPort(getBC() & 0xFFFF, dataBus);
+                break;
             case IN: // Used for IN A, (n)
-                if (enableLastData) lastData += "port(" + Utils.toHex4(((A & 0xff) << 8) | (dataBus & 0xff)) + ")";
+                if (enableDecompile) lastData += "port(" + Utils.toHex4(((A & 0xff) << 8) | (dataBus & 0xff)) + ")";
 
                 dataBus = doIn(((A & 0xff) << 8) | (dataBus & 0xff));
 
@@ -1182,6 +1209,12 @@ public class CPU {
                 mem.poke(SP + 1, wrk);
 
                 break;
+            case EX_SP_IY:
+                doExSPIy();
+                break;
+            case EX_SP_IX:
+                doExSPIx();
+                break;
             case RLD:
                 doRLD();
                 break;
@@ -1225,6 +1258,24 @@ public class CPU {
             case CPDR:
                 doCPD();
                 if (getBC() != 0) {
+                    PC = (PC - 2 & 0xFFFF);
+                }
+                break;
+            case OUTI:
+                doOUTI();
+                break;
+            case OTIR:
+                doOUTI();
+                if (B != 0) {
+                    PC = (PC - 2 & 0xFFFF);
+                }
+                break;
+            case OUTD:
+                doOUTD();
+                break;
+            case OTDR:
+                doOUTD();
+                if (B != 0) {
                     PC = (PC - 2 & 0xFFFF);
                 }
                 break;
@@ -1321,6 +1372,29 @@ public class CPU {
         //System.out.println("LDI " + (char) data + "  " + data);
     }
 
+    private void doOUTD() {
+        // B is decremented.
+        // A byte from the memory location pointed to by HL is written to port C.
+        // Then HL is decremented.
+
+
+        int data = mem.peek(getHL());
+        mem.setPort(getBC() & 0xFFFF, data);
+        decHL();
+        B = doDec(B);
+    }
+
+    private void doOUTI() {
+        // B is decremented.
+        // A byte from the memory location pointed to by HL is written to port C.
+        // Then HL is incremented.
+
+        int data = mem.peek(getHL());
+        mem.setPort(getBC() & 0xFFFF, data);
+        incHL();
+        B = doDec(B);
+    }
+
     private void compare(int value) {
 
         int tmp = A;
@@ -1381,6 +1455,7 @@ public class CPU {
         setFlag(FLAG_3, ((A + data) & 0x02) > 0);
 
     }
+
 
     private void ed_ini() {
     }
@@ -1555,6 +1630,30 @@ public class CPU {
         return wrk & 0xff;
     }
 
+    public void doExSPIy() {
+
+        int a = mem.peek(SP);
+        mem.poke(SP, IY & 0xff);
+
+
+        int b = mem.peek(SP + 1);
+        mem.poke(SP + 1, (IY >> 8) & 0xff);
+
+        IY = (b << 8) | a;
+    }
+
+    public void doExSPIx() {
+
+        int a = mem.peek(SP);
+        mem.poke(SP, IX & 0xff);
+
+
+        int b = mem.peek(SP + 1);
+        mem.poke(SP + 1, (IX >> 8) & 0xff);
+
+        IX = (b << 8) | a;
+    }
+
     private void setInterruptMode(int i) {
         interruptMode = i;
     }
@@ -1624,7 +1723,6 @@ public class CPU {
         }
         return val;
     }
-
 
 
     public int getAF() {

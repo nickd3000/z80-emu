@@ -18,7 +18,7 @@ public class Emulator {
     KeyboardProcessor keyboardProcessor;
     boolean showInstructions = false;
     int borderSize = 40;
-    int frameSkip = 51;
+    int frameSkip = 1;
     private CPU cpu = null;
     private MEM mem = null;
 
@@ -65,7 +65,7 @@ public class Emulator {
 //        fileReaderZ80.readFile(romPath+"Spellbound.z80", cpu); //
 //        fileReaderZ80.readFile(romPath+"BombJack.z80", cpu); // Type 1
 //        fileReaderZ80.readFile(romPath+"ChuckieEgg.z80", cpu); // Type 2
-//        fileReaderZ80.readFile(romPath+"FantasyWorldDizzy.z80", cpu); // Type 1
+        fileReaderZ80.readFile(romPath + "FantasyWorldDizzy.z80", cpu); // Type 1
 //        fileReaderZ80.readFile(romPath + "RType.z80", cpu); // type 3A
 //        fileReaderZ80.readFile(romPath+"JacktheNipper.z80", cpu); // OOB
 //        fileReaderZ80.readFile(romPath+"BountyBob.z80", cpu); //
@@ -92,14 +92,14 @@ public class Emulator {
 //        fileReaderZ80.readFile(romPath + "HeadOverHeels.z80", cpu); // type 1
 
 
-//                fileReaderZ80.readFile(romPath+"Xenon.z80", cpu); // working
-//                fileReaderZ80.readFile(romPath+"Nemesis.z80", cpu); //
-//                fileReaderZ80.readFile(romPath+"Dizzy.z80", cpu); //
-//                fileReaderZ80.readFile(romPath+"Emerald Isle.z80", cpu); //
-//                fileReaderZ80.readFile(romPath+"AWMonty.z80", cpu); // works
+//        fileReaderZ80.readFile(romPath+"Xenon.z80", cpu); // working
+//        fileReaderZ80.readFile(romPath+"Nemesis.z80", cpu); //
+//        fileReaderZ80.readFile(romPath+"Dizzy.z80", cpu); //
+//        fileReaderZ80.readFile(romPath+"Emerald Isle.z80", cpu); //
+//        fileReaderZ80.readFile(romPath+"AWMonty.z80", cpu); // works
 
-//                        fileReaderZ80.readFile(romPath+"Kentilla.z80", cpu); // works
-//                        fileReaderZ80.readFile(romPath+"TwinKingdomValley.z80", cpu); // works
+//        fileReaderZ80.readFile(romPath+"Kentilla.z80", cpu); // works
+//        fileReaderZ80.readFile(romPath+"TwinKingdomValley.z80", cpu); // works
     }
 
     public void initBreakpoints() {
@@ -204,7 +204,7 @@ public class Emulator {
 
                 render.render(basicDisplay, cpu, 2, borderSize);
                 render.renderRegisters(basicDisplay, cpu, 2);
-                basicDisplay.repaint();
+                basicDisplay.repaint(); //60);
                 //System.out.println(cpu.dump());
 
                 interrupt();
@@ -242,9 +242,11 @@ public class Emulator {
 
         if (control && keyState[KeyEvent.VK_I] > 0) {
             showInstructions = true;
+            cpu.enableDecompile = true;
         }
         if (control && keyState[KeyEvent.VK_O] > 0) {
             showInstructions = false;
+            cpu.enableDecompile = false;
         }
 
         if (control && keyState[KeyEvent.VK_T] > 0) {
