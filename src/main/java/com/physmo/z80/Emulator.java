@@ -56,7 +56,7 @@ public class Emulator {
 //        fileReaderZ80.readFile(romPath+"Myth.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"FindersKeepers.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"Arkanoid.z80", cpu); // type 2
-//        fileReaderZ80.readFile(romPath+"ActionBiker.z80", cpu); // Type 2
+        fileReaderZ80.readFile(romPath + "ActionBiker.z80", cpu); // Type 2
 //        fileReaderZ80.readFile(romPath+"Jetpac.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"GNG.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"SabreWulf.z80", cpu);
@@ -65,7 +65,7 @@ public class Emulator {
 //        fileReaderZ80.readFile(romPath+"Spellbound.z80", cpu); //
 //        fileReaderZ80.readFile(romPath+"BombJack.z80", cpu); // Type 1
 //        fileReaderZ80.readFile(romPath+"ChuckieEgg.z80", cpu); // Type 2
-        fileReaderZ80.readFile(romPath + "FantasyWorldDizzy.z80", cpu); // Type 1
+//        fileReaderZ80.readFile(romPath + "FantasyWorldDizzy.z80", cpu); // Type 1
 //        fileReaderZ80.readFile(romPath + "RType.z80", cpu); // type 3A
 //        fileReaderZ80.readFile(romPath+"JacktheNipper.z80", cpu); // OOB
 //        fileReaderZ80.readFile(romPath+"BountyBob.z80", cpu); //

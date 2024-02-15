@@ -3,16 +3,15 @@ package com.physmo.z80;
 public class MEM {
 
     public int[] RAM = new int[0x10000]; // 64k
-    public int[] PORTS = new int[0x10000]; // 64k
+
     CPU cpu = null;
     int count = 0;
     int[] keyRowStates = new int[]{0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD};
+    int borderColor = 0;
 
     public MEM(CPU cpu) {
         this.cpu = cpu;
-        for (int i = 0; i < 0xffff; i++) {
-            PORTS[i] = 0xBF;
-        }
+
     }
 
     public void poke(int addr, int val) {
@@ -68,29 +67,33 @@ public class MEM {
         return RAM;
     }
 
-    int borderColor = 0;
 
     public int getBorderColor() {
-        return PORTS[0x00FE];
+        return borderColor;
     }
 
     public void setPort(int portAddress, int value) {
         //System.out.println("Port: " + Utils.toHex4(portAddress) + " = " + Utils.toHex2(value));
-        if (portAddress == 254) {
-            PORTS[portAddress & 0xFFFF] = value & 0xff;
-        } else {
-            PORTS[portAddress & 0xFFFF] = value & 0xff;
+        if (portAddress == 0xFE) {
+            borderColor = value & 0xff;
         }
     }
 
     public int getPort(int portAddress) {
+
         if ((portAddress & 0xFF) == 0xFE) {
             return getKeyboardPort(portAddress);
         }
-        return PORTS[portAddress & 0xFFFF] & 0xFF;
+        if ((portAddress & 0xFF) == 0x1F) {
+            return 0; // Kempston?
+        }
+
+        return 0xff;
+
     }
 
     // Keyboard ports are more complicated that expected.
+    // Each bit in the high byte represents a key layer that will be included in the result.
     public int getKeyboardPort(int portAddress) {
         int highByte = (portAddress & 0xFF00) >> 8;
         int val = 0xFF;
