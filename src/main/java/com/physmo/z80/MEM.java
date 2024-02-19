@@ -8,6 +8,7 @@ public class MEM {
     int count = 0;
     int[] keyRowStates = new int[]{0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD, 0xFD};
     int borderColor = 0;
+    int kempstonState = 0;
 
     public MEM(CPU cpu) {
         this.cpu = cpu;
@@ -67,7 +68,6 @@ public class MEM {
         return RAM;
     }
 
-
     public int getBorderColor() {
         return borderColor;
     }
@@ -85,7 +85,7 @@ public class MEM {
             return getKeyboardPort(portAddress);
         }
         if ((portAddress & 0xFF) == 0x1F) {
-            return 0; // Kempston?
+            return kempstonState;
         }
 
         return 0xff;
@@ -107,12 +107,15 @@ public class MEM {
         return val;
     }
 
-
     public void setKeyRowState(int row, int val) {
         keyRowStates[row] = val;
     }
 
     public int getKeyRowState(int row) {
         return keyRowStates[row];
+    }
+
+    public void setKempstonState(int state) {
+        kempstonState = state;
     }
 }

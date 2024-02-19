@@ -51,12 +51,12 @@ public class Emulator {
 // Mostly working
 //        fileReaderZ80.readFile(romPath+"Zzzz.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"ManicMiner.z80", cpu); // Info byte: 0b100000
-//        fileReaderZ80.readFile(romPath+"JETSETW1.Z80", cpu);
+        fileReaderZ80.readFile(romPath + "JETSETW1.Z80", cpu);
 //        fileReaderZ80.readFile(romPath+"HungryHorace.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"Myth.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"FindersKeepers.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"Arkanoid.z80", cpu); // type 2
-        fileReaderZ80.readFile(romPath + "ActionBiker.z80", cpu); // Type 2
+//        fileReaderZ80.readFile(romPath + "ActionBiker.z80", cpu); // Type 2
 //        fileReaderZ80.readFile(romPath+"Jetpac.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"GNG.z80", cpu);
 //        fileReaderZ80.readFile(romPath+"SabreWulf.z80", cpu);
@@ -204,7 +204,7 @@ public class Emulator {
 
                 render.render(basicDisplay, cpu, 2, borderSize);
                 render.renderRegisters(basicDisplay, cpu, 2);
-                basicDisplay.repaint(); //60);
+                basicDisplay.repaint(60);
                 //System.out.println(cpu.dump());
 
                 interrupt();

@@ -33,6 +33,19 @@ public class KeyboardProcessor {
         return result;
     }
 
+    public void processKempston(int[] keyState) {
+        // 000FUDLR (active bit high).
+        int combined = 0;
+        if (keyState[KeyEvent.VK_SLASH] > 0) combined |= 0b00010000;
+        if (keyState[KeyEvent.VK_UP] > 0) combined |= 0b00001000;
+        if (keyState[KeyEvent.VK_DOWN] > 0) combined |= 0b00000100;
+        if (keyState[KeyEvent.VK_LEFT] > 0) combined |= 0b00000010;
+        if (keyState[KeyEvent.VK_RIGHT] > 0) combined |= 0b00000001;
+        cpu.mem.setKempstonState(combined);
+
+    }
+
+
     public void handleInput() {
 
         int[] keyState = bd.getKeyState();
@@ -47,6 +60,8 @@ public class KeyboardProcessor {
         cpu.mem.setKeyRowState(5, processRow(KeysDFFE, keyState)); // 5
         cpu.mem.setKeyRowState(6, processRow(KeysBFFE, keyState)); // 6
         cpu.mem.setKeyRowState(7, processRow(Keys7FFE, keyState)); // 7
+
+        processKempston(keyState);
     }
 
 }
