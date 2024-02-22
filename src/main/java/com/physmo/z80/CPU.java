@@ -47,6 +47,7 @@ public class CPU {
     int tickCounter = 0;
     int iff1 = 0;
     int iff2 = 0;
+    boolean[] parityTable = new boolean[0xFF + 1];
 
     public String getFlagsString() {
         // -Z---V--
@@ -62,8 +63,8 @@ public class CPU {
         if (testFlag(FLAG_C)) flagChars[7] = 'C';
 
 
-        for (int i = 0; i < flagChars.length; i++) {
-            str += flagChars[i];
+        for (char flagChar : flagChars) {
+            str += flagChar;
         }
         return str + "]";
 
@@ -89,6 +90,8 @@ public class CPU {
         for (int i = 0; i < 200; i++) {
             mem.getRAM()[0x4000 + i] = i & 0xff;
         }
+
+        buildParityTable();
     }
 
     public String dump() {
@@ -188,7 +191,8 @@ public class CPU {
             ops = codeTableManager.codeTableED.getInstructionCode(currentInstruction);
         } else if (ops[0] == MicroOp.PREFIX_FD) { // Handle FD prefix instructions.
             currentInstruction = mem.peek(PC);
-            lastDecompile = "(Prefix FD) " + decompile(codeTableManager.codeTableFD, PC, currentInstruction);
+            if (enableDecompile)
+                lastDecompile = "(Prefix FD) " + decompile(codeTableManager.codeTableFD, PC, currentInstruction);
             PC++;
             ops = codeTableManager.codeTableFD.getInstructionCode(currentInstruction);
 
@@ -218,7 +222,6 @@ public class CPU {
         }
     }
 
-
     public String decompile(CodeTable codeTable, int address, int instruction) {
         String str = "[" + Utils.toHex4(address) + "/" + Utils.toHex2(instruction) + "] ";
         str += codeTable.getInstructionName(instruction);
@@ -227,7 +230,6 @@ public class CPU {
 
     private void doMicroOp(MicroOp op) {
 
-        int carryOut;
         int wrk = 0;
         boolean bak_s, bak_z, bak_p;
 
@@ -596,7 +598,6 @@ public class CPU {
             case SBC_HL:
                 dataBus += (testFlag(FLAG_C) ? 1 : 0);
 
-                // TODO: this was invented, check it properly
                 wrk = getHL() - dataBus;
 
                 setFlag(FLAG_S, (wrk & 0x8000) > 0);
@@ -614,7 +615,6 @@ public class CPU {
             case ADC_HL:
                 dataBus += (testFlag(FLAG_C) ? 1 : 0);
 
-                // TODO: this was invented, check it properly
                 wrk = getHL() + dataBus;
 
                 setFlag(FLAG_S, (wrk & 0x8000) > 0);
@@ -681,28 +681,21 @@ public class CPU {
                 break;
 
             case RLC: // Rotate left with carry
-                if ((dataBus & 0xff00) > 0) throw new RuntimeException("8 bit instruction overflow");
-
                 dataBus = doRLC(dataBus);
                 break;
             case RRC:
-                if ((dataBus & 0xff00) > 0) throw new RuntimeException("8 bit instruction overflow");
-
                 dataBus = doRRC(dataBus);
                 break;
             case RL:
-                if ((dataBus & 0xff00) > 0) throw new RuntimeException("8 bit instruction overflow");
-
                 dataBus = doRL(dataBus);
                 break;
             case RR:
-                if ((dataBus & 0xff00) > 0) throw new RuntimeException("8 bit instruction overflow");
-
                 dataBus = doRR(dataBus);
                 break;
 
             case RLCA:
                 // "A" Specific version that affects fewer flags
+                // TODO: make function to store and restore these flags.
                 bak_s = testFlag(FLAG_S);
                 bak_z = testFlag(FLAG_Z);
                 bak_p = testFlag(FLAG_PV);
@@ -926,7 +919,6 @@ public class CPU {
                 iff1 = iff2;
                 break;
             case OUT:
-                // TODO the port stuff needs to be implemented
                 mem.setPort(addrBus, dataBus);
                 break;
             case OUT_PORT_C:
@@ -1456,25 +1448,6 @@ public class CPU {
 
     }
 
-
-    private void ed_ini() {
-    }
-
-    private void ed_outi() {
-    }
-
-    private void ed_ldd() {
-    }
-
-    private void ed_cpd() {
-    }
-
-    private void ed_ind() {
-    }
-
-    private void ed_outd() {
-    }
-
     private void incBC() {
         setBC((getBC() + 1) & 0xffff);
     }
@@ -1683,7 +1656,6 @@ public class CPU {
 
     }
 
-
     // Combine two bytes into one 16 bit value.
     public int combineBytes(int h, int l) {
         return ((h & 0xff) << 8) | (l & 0xff);
@@ -1715,7 +1687,6 @@ public class CPU {
         PC = popW();
     }
 
-
     public int convertSignedByte(int val) {
         if ((val & 0b1000_0000) > 0) {
             //return -1 - ((~val) & 0xff);
@@ -1723,7 +1694,6 @@ public class CPU {
         }
         return val;
     }
-
 
     public int getAF() {
         return combineBytes(A, FL);
@@ -1796,7 +1766,6 @@ public class CPU {
         L_ = vals[5];
     }
 
-
     public void enableInterrupts() {
         pendingEnableInterrupt = 1;
     }
@@ -1837,23 +1806,30 @@ public class CPU {
             unsetFlag(FLAG_3);
     }
 
-    // TODO: recode this slow temp version.
     public void handleParityFlag(int val) {
-        int count = 0;
-        if ((val & 0b0000_0001) > 0) count++;
-        if ((val & 0b0000_0010) > 0) count++;
-        if ((val & 0b0000_0100) > 0) count++;
-        if ((val & 0b0000_1000) > 0) count++;
-        if ((val & 0b0001_0000) > 0) count++;
-        if ((val & 0b0010_0000) > 0) count++;
-        if ((val & 0b0100_0000) > 0) count++;
-        if ((val & 0b1000_0000) > 0) count++;
-
-        if ((count & 0x01) == 0)
+        if (parityTable[val & 0xFF])
             setFlag(FLAG_PV);
         else
             unsetFlag(FLAG_PV);
     }
+
+    public void buildParityTable() {
+        int count;
+        for (int i = 0; i < 0xFF; i++) {
+            count = 0;
+            if ((i & 0b0000_0001) > 0) count++;
+            if ((i & 0b0000_0010) > 0) count++;
+            if ((i & 0b0000_0100) > 0) count++;
+            if ((i & 0b0000_1000) > 0) count++;
+            if ((i & 0b0001_0000) > 0) count++;
+            if ((i & 0b0010_0000) > 0) count++;
+            if ((i & 0b0100_0000) > 0) count++;
+            if ((i & 0b1000_0000) > 0) count++;
+
+            parityTable[i] = ((count & 0x01) == 0);
+        }
+    }
+
 
     // Get word at PC and move PC on.
     public int getNextWord() {

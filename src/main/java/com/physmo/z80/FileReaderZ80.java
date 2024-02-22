@@ -19,6 +19,7 @@ public class FileReaderZ80 {
 
     }
 
+    // TODO: We want to pass in just the data here, not a file object.
     public void decodeFile(FileInputStream in, CPU cpu) throws IOException {
         int[] header = new int[100];
         int headerPos = 0;
